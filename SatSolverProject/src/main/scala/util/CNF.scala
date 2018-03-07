@@ -2,6 +2,7 @@ package util
 
 import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term}
 import smtlib.theories.Core._
+import util.PropositionalLogic.isPropositional
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -305,9 +306,39 @@ final class Formula {
       variableNames(variable) = name
     })
 
-    // TODO: Finish the implementation.
-    ???
+    println(term)
+    println("*******")
+    println(foo(term))
   }
+    // TODO: Finish the implementation.
+    def foo(formula : Term) : Term = {
+      formula match {
+        case True() | False() => formula
+        case QualifiedIdentifier(SimpleIdentifier(id), _) => formula // propositional variable with SSymbol identifier "id"
+        case Not(Not(f)) => foo(f)
+        case Not(Or(disjuncts@_*)) => And(disjuncts.map(c => foo(Not(c))))
+        case Not(And(conjuncts@_*)) => Or(conjuncts.map(c => foo(Not(c))))
+        case Or(disjuncts@_*) => if (disjuncts.contains(True())) True() else
+          Or(disjuncts.map(c => foo(c)).filter(c => c match {
+            case False() => false
+            case _ => true
+          }))
+        case And(conjuncts@_*) => if (conjuncts.contains(False())) False() else
+          And(conjuncts.map(c => foo(c)).filter(c => c match {
+            case True() => false
+            case _ => true
+          }))
+        case Implies(f,g) => Or(List(Not(foo(f)), foo(g)))
+        case Not(Implies(f, g)) => And(List(foo(f), foo(Not(g))))
+        case Equals(f, g) => And(List(Or(List(Not(f), g)), Or(List(f, Not(g)))))
+        case Not(Equals(f, g)) => Or(List(And(List(f, Not(g))), And(List(Not(f), g))))
+        case _ => throw new Exception("foo")
+      }
+    }
+
+
+
+
 
   /**
    * Simplify the formula.
