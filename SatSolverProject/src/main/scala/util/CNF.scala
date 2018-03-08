@@ -2,6 +2,7 @@ package util
 
 import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term}
 import smtlib.theories.Core._
+import solvers.{Z3, Z3Solver}
 import util.PropositionalLogic.isPropositional
 
 import scala.collection.mutable
@@ -317,31 +318,90 @@ final class Formula {
     tseitin(tmp_term)
     println("Tseitin size: " + t_list.size)
     println(And(t_list))
+    println(step3(step2(step1(Equals(step3(step2(step1(term))), term)))))
   }
-    // TODO: Finish the implementation.
-    def foo(formula : Term) : Term = {
-      formula match {
-        case True() | False() => formula
-        case QualifiedIdentifier(SimpleIdentifier(id), _) => formula // propositional variable with SSymbol identifier "id"
-        case Not(Not(f)) => foo(f)
-        case Not(Or(disjuncts@_*)) => And(disjuncts.map(c => foo(Not(c))))
-        case Not(And(conjuncts@_*)) => Or(conjuncts.map(c => foo(Not(c))))
-        case Or(disjuncts@_*) => if (disjuncts.contains(True())) True() else
-          Or(disjuncts.map(c => foo(c)).filter(c => c match {
+
+  /*
+   * The functions step? implement different steps of the 'Conversion to CNF'
+   * algorithm presented in lecture slide 10.
+   */
+
+  /*
+   * Original step 1
+   * Rewrite implications and equivalences and recursively handle them.
+   * For all the other terms recursively handle to their children.
+   */
+  def step1(formula: Term) : Term = {
+    formula match {
+      case True() | False() => formula
+      case QualifiedIdentifier(SimpleIdentifier(id), _) => formula
+      case Not(f) => Not(step1(f))
+      case Or(disjuncts@_*) => Or(disjuncts.map(c => step1(c)))
+      case And(conjuncts@_*) => And(conjuncts.map(c => step1(c)))
+      case Implies(f, g) => Or(List(Not(step1(f)), step1(g)))
+      case Equals(f, g) => And(List(Or(List(Not(step1(f)), step1(g))), Or(List(step1(f), Not(step1(g))))))
+      case _ => throw new Exception("step1")  // this shouldn't happen
+    }
+  }
+
+  /*
+   * Original step 2 & step 3
+   * Push negations inwards, and eliminate double negations when found.
+   * When there is not negation to match (e.g. AND/OR) try to descend to terms children.
+   */
+  def step2(formula: Term) : Term = {
+    formula match {
+      case True() | False() => formula
+      case Not(True()) => False()
+      case Not(False()) => True()
+      case QualifiedIdentifier(SimpleIdentifier(id), _) => formula
+      case Not(QualifiedIdentifier(SimpleIdentifier(id), _)) => formula
+      case Or(disjuncts@_*) => Or(disjuncts.map(c => step2(c)))
+      case And(conjuncts@_*) => And(conjuncts.map(c => step2(c)))
+      case Not(Or(disjuncts@_*)) => And(disjuncts.map(c => step2(Not(c))))
+      case Not(And(conjuncts@_*)) => Or(conjuncts.map(c => step2(Not(c))))
+      case Not(Not(f)) => step2(f)
+      case _ => throw new Exception("step2")  // this shouldn't happen
+    }
+  }
+
+  /*
+   * Original step 4
+   * Eliminate True from conjunctions and remove clauses containing True.
+   * Eliminate False from clauses and remove conjunctions containing False.
+   */
+  def step3(formula: Term) : Term = {
+    formula match {
+      case True() | False() => formula
+      case QualifiedIdentifier(SimpleIdentifier(id), _) => formula
+      case Not(QualifiedIdentifier(SimpleIdentifier(id), _)) => formula
+      case Or(disjuncts@_*) =>
+        val c = disjuncts.map(c => step3(c))
+        if (c.contains(True())) True()
+        else {
+          // remove any False disjuncts
+          val f = c.filter(_ match {
             case False() => false
             case _ => true
-          }))
-        case And(conjuncts@_*) => if (conjuncts.contains(False())) False() else
-          And(conjuncts.map(c => foo(c)).filter(c => c match {
+          })
+          if (f.lengthCompare(0) == 0) False()  // if disjuncts list is empty it means it contained only False
+          else if (f.lengthCompare(1) == 0) f.head
+          else Or(f)
+        }
+      case And(conjuncts@_*) =>
+        val c = conjuncts.map(c => step3(c))
+        if (c.contains(False())) False()
+        else {
+          // remove any True conjuncts
+          val f = c.filter(_ match {
             case True() => false
             case _ => true
-          }))
-        case Implies(f,g) => Or(List(Not(foo(f)), foo(g)))
-        case Not(Implies(f, g)) => And(List(foo(f), foo(Not(g))))
-        case Equals(f, g) => And(List(Or(List(Not(f), g)), Or(List(f, Not(g)))))
-        case Not(Equals(f, g)) => Or(List(And(List(f, Not(g))), And(List(Not(f), g))))
-        case _ => throw new Exception("foo")
-      }
+          })
+          if (f.lengthCompare(0) == 0) True()  // if conjuncts list is empty it means it contained only True
+          else if (f.lengthCompare(1) == 0) f.head
+          else And(f)
+        }
+      case _ => throw new Exception("step3")  // this shouldn't happen
     }
 
   /*
