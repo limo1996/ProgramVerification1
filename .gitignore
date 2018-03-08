@@ -9,4 +9,5 @@ SatSolverProject/src/test/test.iml
 scala-smtlib/src/it/it.iml
 scala-smtlib/src/main/main1.iml
 scala-smtlib/src/test/test1.iml
-
+out/
+project1.pdf

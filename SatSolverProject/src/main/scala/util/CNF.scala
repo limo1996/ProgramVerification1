@@ -6,6 +6,7 @@ import util.PropositionalLogic.isPropositional
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 
 /**
   * A formula in CNF form.
@@ -306,9 +307,16 @@ final class Formula {
       variableNames(variable) = name
     })
 
-    println(term)
+    /*println(term)
     println("*******")
-    println(foo(term))
+    println(foo(term))*/
+    val tmp_term = Or(List(And(List(getFreshSMTVar, getFreshSMTVar, getFreshSMTVar, getFreshSMTVar, getFreshSMTVar)),
+                          And(List(getFreshSMTVar, getFreshSMTVar, getFreshSMTVar))));
+    println(tmp_term)
+    println("*************")
+    tseitin(tmp_term)
+    println("Tseitin size: " + t_list.size)
+    println(And(t_list))
   }
     // TODO: Finish the implementation.
     def foo(formula : Term) : Term = {
@@ -336,9 +344,91 @@ final class Formula {
       }
     }
 
+  /*
+   * List that after call of tseitin will contain all equivalences that tseitin produses.
+   * We will still need to simplify them thought.
+   */
+  private val t_list = new ListBuffer[Term]();
 
+  def printList(args: List[_]): Unit = {
+    args.foreach(println)
+  }
+  /*
+   * Converts formula that is Conjuction of nothing else than literals to one variable which it returns.
+   * Equivalences generated during process are stored in t_list.
+   */
+  private def convertAnd(formula: Term): Term = {
+    println("convertAnd: " + formula)
+    formula match {
+      case And(conjunts@_*) =>
+        if(conjunts.size == 1) conjunts(0)                            // if size one return literal
+        else if(conjunts.size == 2) {                                 // else if size 2 replace these 2 variables with one
+          val fresh_var = getFreshSMTVar                              // store the equivalence and return newly produced variable
+          t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))
+          println("convertAnd: size 2 t_list: " + t_list.size)
+          fresh_var
+        }
+        else {                                                        // if size is greater than 2 we will pick first two variables
+          val tmp_list = new ListBuffer[Term]()                                 // replace them with new one. Add new equivalence into the list
+          val fresh_var = getFreshSMTVar                              // conjoin new variable with list without first two elements
+          t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))  // and call ConvertAnd recursively again.
+          tmp_list += fresh_var
+          tmp_list ++= conjunts.drop(2)
+          println("CA: fresh_var: " + fresh_var + " t_list: " + t_list.size + " tmp_list: " + tmp_list.size)
+          convertAnd(And(tmp_list))
+        }                                                             // this exeption should never be raised
+      case _ => throw new Exception("convertAnd: unexpected input Term")
 
+    }
+  }
 
+  /*
+   * Converts formula that is Disjunction of nothing else than literals to one variable which it returns.
+   * Equivalences generated during process are stored in t_list.
+   */
+  private def convertOr(formula: Term): Term = {
+    println("convertOr: " + formula)
+    formula match {
+      case Or(disjuncts@_*) =>
+        if(disjuncts.size == 1) disjuncts(0)                          // if size one return literal
+        else if(disjuncts.size == 2) {                                // else if size 2 replace these 2 variables with one
+          val fresh_var = getFreshSMTVar                              // store the equivalence and return newly produced variable
+          t_list += Equals(fresh_var, Or(disjuncts(0), disjuncts(1)))
+          println("convertOr: size 2 t_list: " + t_list.size)
+          fresh_var
+        }
+        else {                                                        // if size is greater than 2 we will pick first two variables
+          val tmp_list = new ListBuffer[Term]()                                 // replace them with new one. Add new equivalence into the list
+          val fresh_var = getFreshSMTVar                              // disjoin new variable with list without first two elements
+          t_list += Equals(fresh_var, Or(disjuncts(0), disjuncts(1))) // and call ConvertAnd recursively again.
+          tmp_list += fresh_var
+          tmp_list ++= disjuncts.drop(2)
+          convertOr(Or(tmp_list))
+        }                                                             // this exeption should never be raised
+      case _ => throw new Exception("convertAnd: unexpected input Term")
+    }
+  }
+
+  /*
+   * Applies Tseitin transformation => https://en.wikipedia.org/wiki/Tseytin_transformation
+   * We assume that formula contains just conjuctions, disjunctions and negations.
+   * All equivalences that are created during process are stored in t_list.
+   */
+  private def tseitin(formula: Term): Term = {
+    println("Tseitin: " + formula)
+    formula match {
+      case And(conjunts@_*) =>                                        // Conjunction
+        if(conjunts.forall(c => PropositionalLogic.isLiteral(c))) convertAnd(formula) // if all are pure literals apply convertAnd function on them
+        else tseitin(And(conjunts.map(c => tseitin(c))))              // else we need to apply tseitin on children, conjoin resulting variables and call tseitin on them again
+      case Or(disjuncts@_*) =>                                        // Disjunction
+        if(disjuncts.forall(c => PropositionalLogic.isLiteral(c))) convertOr(formula) // if all are pure literals apply convertOr function on them
+        else tseitin(Or(disjuncts.map(c => tseitin(c))))              // else we need to apply tseitin on children, disjoin resulting variables and call tseitin on them again.
+      case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) =>
+        t_list :+ formula                                             // if whole formula is just one literal (could be negated) than add it to t_list and return
+        formula
+      case _ => throw new Exception("tseitin: unexpected input Term")
+    }
+  }
 
   /**
    * Simplify the formula.
