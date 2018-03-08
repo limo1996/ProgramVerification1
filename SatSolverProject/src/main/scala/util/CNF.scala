@@ -308,9 +308,7 @@ final class Formula {
       variableNames(variable) = name
     })
 
-    /*println(term)
-    println("*******")
-    println(foo(term))*/
+    /*   TMP TESTS
     val tmp_term = Or(List(And(List(getFreshSMTVar, getFreshSMTVar, getFreshSMTVar, getFreshSMTVar, getFreshSMTVar)),
                           And(List(getFreshSMTVar, getFreshSMTVar, getFreshSMTVar))));
     println(tmp_term)
@@ -319,6 +317,20 @@ final class Formula {
     println("Tseitin size: " + t_list.size)
     println(And(t_list))
     println(step3(step2(step1(Equals(step3(step2(step1(term))), term)))))
+    */
+
+    // converts formula to CNF and stores it in this object
+    val simplified = simplify(term)
+    simplified match {
+      case And(conjuncts@_*) =>
+        for(c <- conjuncts){
+          c match {
+            case Or(disjuncts@_*) => addClause(disjuncts)
+            case _ => throw new Exception("constructor: Unexpected formula: " + c + " expected clause")
+          }
+        }
+      case _ => throw new Exception("constructor: Unexpected formula: " + simplified + " expected cnf")
+    }
   }
 
   /*
@@ -384,7 +396,7 @@ final class Formula {
             case False() => false
             case _ => true
           })
-          if (f.lengthCompare(0) == 0) False()  // if disjuncts list is empty it means it contained only False
+          if (f.lengthCompare(0) == 0) False() // if disjuncts list is empty it means it contained only False
           else if (f.lengthCompare(1) == 0) f.head
           else Or(f)
         }
@@ -397,12 +409,13 @@ final class Formula {
             case True() => false
             case _ => true
           })
-          if (f.lengthCompare(0) == 0) True()  // if conjuncts list is empty it means it contained only True
+          if (f.lengthCompare(0) == 0) True() // if conjuncts list is empty it means it contained only True
           else if (f.lengthCompare(1) == 0) f.head
           else And(f)
         }
-      case _ => throw new Exception("step3")  // this shouldn't happen
+      case _ => throw new Exception("step3") // this shouldn't happen
     }
+  }
 
   /*
    * List that after call of tseitin will contain all equivalences that tseitin produses.
@@ -486,14 +499,41 @@ final class Formula {
       case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) =>
         t_list :+ formula                                             // if whole formula is just one literal (could be negated) than add it to t_list and return
         formula
-      case _ => throw new Exception("tseitin: unexpected input Term")
+      case _ => throw new Exception("tseitin: unexpected input Term: " + formula)
     }
+  }
+
+  /*
+   * Simplifies equality produced by tseitin into conjuction (returns elements of conjuction)
+   */
+  private def simplifyEquality(formula: Term): Seq[Term] = {
+    val sim_form = step1(formula)
+    sim_form match{
+      case And(conjuncts@_*) => conjuncts
+      case _ => throw new Exception("simplifyEquality: unexpected input Term: " + formula)
+    }
+  }
+
+  /*
+   * Simplifies formulas produced by tsetin and returns them as conjuction (CNF)
+   */
+  private def simplifyTseitin(): Term = {
+    val cnf = ListBuffer[Term]()
+    for (c <- t_list) {
+      cnf ++= simplifyEquality(c)
+    }
+    And(cnf)
   }
 
   /**
    * Simplify the formula.
    */
-  private def simplify(formula: Term): Term = ???
+  private def simplify(formula: Term): Term = {
+    val simplified1 = step3(step2(step1(formula)))
+    val simplified2 = tseitin(simplified1)
+    val simplified3 = simplifyTseitin()
+    simplified3
+  }
 
   private def getFreshVariable: Variable = {
     val oldLastId = lastId
