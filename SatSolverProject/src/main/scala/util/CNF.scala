@@ -339,17 +339,15 @@ final class Formula {
    * Rewrite implications and equivalences and recursively handle them.
    * For all the other terms recursively handle to their children.
    */
-  def step1(formula: Term) : Term = {
-    formula match {
-      case True() | False() => formula
-      case QualifiedIdentifier(SimpleIdentifier(id), _) => formula
-      case Not(f) => Not(step1(f))
-      case Or(disjuncts@_*) => Or(disjuncts.map(c => step1(c)))
-      case And(conjuncts@_*) => And(conjuncts.map(c => step1(c)))
-      case Implies(f, g) => Or(Not(step1(f)), step1(g))
-      case Equals(f, g) => And(Or(Not(step1(f)), step1(g)), Or(step1(f), Not(step1(g))))
-      case _ => throw new Exception("step1")  // this shouldn't happen
-    }
+  def step1(formula: Term) : Term = formula match {
+    case True() | False() => formula
+    case QualifiedIdentifier(SimpleIdentifier(_), _) => formula
+    case Not(f) => Not(step1(f))
+    case Or(disjuncts@_*) => Or(disjuncts.map(c => step1(c)))
+    case And(conjuncts@_*) => And(conjuncts.map(c => step1(c)))
+    case Implies(f, g) => Or(Not(step1(f)), step1(g))
+    case Equals(f, g) => And(Or(Not(step1(f)), step1(g)), Or(step1(f), Not(step1(g))))
+    case _ => throw new Exception("step1")  // this shouldn't happen
   }
 
   /*
@@ -417,11 +415,12 @@ final class Formula {
    * List that after call of tseitin will contain all equivalences that tseitin produses.
    * We will still need to simplify them thought.
    */
-  private val t_list = new ListBuffer[Term]();
+  private val t_list = new ListBuffer[Term]()
 
   def printList(args: List[_]): Unit = {
     args.foreach(println)
   }
+
   /*
    * Converts formula that is Conjuction of nothing else than literals to one variable which it returns.
    * Equivalences generated during process are stored in t_list.
@@ -430,15 +429,15 @@ final class Formula {
     println("convertAnd: " + formula)
     formula match {
       case And(conjunts@_*) =>
-        if(conjunts.size == 1) conjunts(0)                            // if size one return literal
-        else if(conjunts.size == 2) {                                 // else if size 2 replace these 2 variables with one
+        if (conjunts.size == 1) conjunts(0)                           // if size one return literal
+        else if (conjunts.size == 2) {                                // else if size 2 replace these 2 variables with one
           val fresh_var = getFreshSMTVar                              // store the equivalence and return newly produced variable
           t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))
           println("convertAnd: size 2 t_list: " + t_list.size)
           fresh_var
         }
         else {                                                        // if size is greater than 2 we will pick first two variables
-          val tmp_list = new ListBuffer[Term]()                                 // replace them with new one. Add new equivalence into the list
+          val tmp_list = new ListBuffer[Term]()                       // replace them with new one. Add new equivalence into the list
           val fresh_var = getFreshSMTVar                              // conjoin new variable with list without first two elements
           t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))  // and call ConvertAnd recursively again.
           tmp_list += fresh_var
@@ -467,7 +466,7 @@ final class Formula {
           fresh_var
         }
         else {                                                        // if size is greater than 2 we will pick first two variables
-          val tmp_list = new ListBuffer[Term]()                                 // replace them with new one. Add new equivalence into the list
+          val tmp_list = new ListBuffer[Term]()                       // replace them with new one. Add new equivalence into the list
           val fresh_var = getFreshSMTVar                              // disjoin new variable with list without first two elements
           t_list += Equals(fresh_var, Or(disjuncts(0), disjuncts(1))) // and call ConvertAnd recursively again.
           tmp_list += fresh_var
@@ -486,9 +485,9 @@ final class Formula {
   private def tseitin(formula: Term): Term = {
     println("Tseitin: " + formula)
     formula match {
-      case And(conjunts@_*) =>                                        // Conjunction
-        if(conjunts.forall(c => PropositionalLogic.isLiteral(c))) convertAnd(formula) // if all are pure literals apply convertAnd function on them
-        else tseitin(And(conjunts.map(c => tseitin(c))))              // else we need to apply tseitin on children, conjoin resulting variables and call tseitin on them again
+      case And(conjuncts@_*) =>                                       // Conjunction
+        if(conjuncts.forall(c => PropositionalLogic.isLiteral(c))) convertAnd(formula) // if all are pure literals apply convertAnd function on them
+        else tseitin(And(conjuncts.map(c => tseitin(c))))             // else we need to apply tseitin on children, conjoin resulting variables and call tseitin on them again
       case Or(disjuncts@_*) =>                                        // Disjunction
         if(disjuncts.forall(c => PropositionalLogic.isLiteral(c))) convertOr(formula) // if all are pure literals apply convertOr function on them
         else tseitin(Or(disjuncts.map(c => tseitin(c))))              // else we need to apply tseitin on children, disjoin resulting variables and call tseitin on them again.
