@@ -60,7 +60,7 @@ object Constructors {
     }
 
     var isFalse = false
-    val simpler = ts.filter{
+    val simpler = flat.filter{
       case False() =>
         isFalse = true
         false
@@ -71,11 +71,11 @@ object Constructors {
     if(isFalse) False() else simpler match {
       case Seq() => True()
       case Seq(t) => t
-      case _ => And(ts)
+      case _ => And(simpler)
     }
   }
 
-  def or(t1: Term, t2: Term, ts: Term*): Term = and(t1 +: t2 +: ts)
+  def or(t1: Term, t2: Term, ts: Term*): Term = or(t1 +: t2 +: ts)
   def or(ts: Seq[Term]): Term = {
     val flat = ts.flatMap{
       case Or(es@_*) => es
@@ -83,7 +83,7 @@ object Constructors {
     }
 
     var isTrue = false
-    val simpler = ts.filter{
+    val simpler = flat.filter{
       case True() =>
         isTrue = true
         false
@@ -94,7 +94,7 @@ object Constructors {
     if(isTrue) True() else simpler match {
       case Seq() => False()
       case Seq(t) => t
-      case _ => Or(ts)
+      case _ => Or(simpler)
     }
   }
 
