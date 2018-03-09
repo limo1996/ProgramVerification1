@@ -346,8 +346,8 @@ final class Formula {
       case Not(f) => Not(step1(f))
       case Or(disjuncts@_*) => Or(disjuncts.map(c => step1(c)))
       case And(conjuncts@_*) => And(conjuncts.map(c => step1(c)))
-      case Implies(f, g) => Or(List(Not(step1(f)), step1(g)))
-      case Equals(f, g) => And(List(Or(List(Not(step1(f)), step1(g))), Or(List(step1(f), Not(step1(g))))))
+      case Implies(f, g) => Or(Not(step1(f)), step1(g))
+      case Equals(f, g) => And(Or(Not(step1(f)), step1(g)), Or(step1(f), Not(step1(g))))
       case _ => throw new Exception("step1")  // this shouldn't happen
     }
   }
