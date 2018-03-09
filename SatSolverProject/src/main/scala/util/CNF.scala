@@ -314,17 +314,7 @@ final class Formula {
     println("Z3 equivalence check: " + Z3Solver.checkEquals(step2(step1(term)), term))
     println("***********************")
     // converts formula to CNF and stores it in this object
-    val simplified = simplify(term)
-    simplified match {
-      case And(conjuncts@_*) =>
-        for(c <- conjuncts){
-          c match {
-            case Or(disjuncts@_*) => addClause(disjuncts)
-            case _ => throw new Exception("constructor: Unexpected formula: " + c + " expected clause")
-          }
-        }
-      case _ => throw new Exception("constructor: Unexpected formula: " + simplified + " expected cnf")
-    }
+    simplify(term)
     println()
   }
 
@@ -477,26 +467,34 @@ final class Formula {
   /*
    * Simplifies formulas produced by tsetin and returns them as conjuction (CNF)
    */
-  private def simplifyTseitin(): Term = {
+  private def simplifyTseitin(): Unit = {
     val cnf = ListBuffer[Term]()
     println("Cheitin list: " + t_list)
     for (c <- t_list) {
       cnf ++= simplifyEquality(c)
     }
     println("Cheitin list simplified: " + cnf)
-    And(cnf)
+    if (cnf.lengthCompare(0) == 0) containsEmptyClause = true
+    else if (cnf.lengthCompare(1) == 0) addClause(cnf)
+    else {
+      for (c <- cnf) {
+        c match {
+          case Or(disjuncts@_*) => addClause(disjuncts)
+          case _ => throw new Exception("simplify")
+        }
+      }
+    }
   }
 
   /**
    * Simplify the formula.
    */
-  private def simplify(formula: Term): Term = {
+  private def simplify(formula: Term): Unit = {
     val simplified1 = step2(step1(formula))
     println("simplified 1 " + simplified1)
     val simplified2 = tseitin(simplified1)
     println("simplified 2 " + simplified2)
-    val simplified3 = simplifyTseitin()
-    simplified3
+    simplifyTseitin()
   }
 
   private def getFreshVariable: Variable = {
@@ -542,7 +540,7 @@ final class Formula {
   def addClause(literals: Seq[Term]): Unit = {
     require(literals.nonEmpty)
     val clause = new Clause
-    literals.map(simplify).foreach {
+    literals.foreach {
       case v@QualifiedIdentifier(SimpleIdentifier(id), _) =>
         if (!variableIds.contains(id.name)) {
           val variable = getFreshVariable
