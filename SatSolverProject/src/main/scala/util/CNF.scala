@@ -2,6 +2,7 @@ package util
 
 import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term}
 import smtlib.theories.Core._
+import smtlib.theories.Constructors._
 import solvers.{Z3Solver}
 
 import scala.collection.mutable
@@ -309,11 +310,10 @@ final class Formula {
     
     println(term)
     println("*******")
-    println(Z3Solver.checkEquals(step3(step2(step1(term))), term))
     println("***********************")
-    println(step3(step2(step1(Equals(step3(step2(step1(term))), term)))))
 
 
+    println("Z3 equivalence check: " + Z3Solver.checkEquals(step2(step1(term)), term))
     // converts formula to CNF and stores it in this object
     val simplified = simplify(term)
     simplified match {
@@ -349,65 +349,30 @@ final class Formula {
     case _ => throw new Exception("step1")  // this shouldn't happen
   }
 
-  /*
-   * Original step 2 & step 3
-   * Push negations inwards, and eliminate double negations when found.
-   * When there is not negation to match (e.g. AND/OR) try to descend to terms children.
-   */
-  def step2(formula: Term) : Term = {
-    formula match {
-      case True() | False() => formula
-      case Not(True()) => False()
-      case Not(False()) => True()
-      case QualifiedIdentifier(SimpleIdentifier(id), _) => formula
-      case Not(QualifiedIdentifier(SimpleIdentifier(id), _)) => formula
-      case Or(disjuncts@_*) => Or(disjuncts.map(c => step2(c)))
-      case And(conjuncts@_*) => And(conjuncts.map(c => step2(c)))
-      case Not(Or(disjuncts@_*)) => And(disjuncts.map(c => step2(Not(c))))
-      case Not(And(conjuncts@_*)) => Or(conjuncts.map(c => step2(Not(c))))
-      case Not(Not(f)) => step2(f)
-      case _ => throw new Exception("step2")  // this shouldn't happen
-    }
-  }
 
   /*
-   * Original step 4
-   * Eliminate True from conjunctions and remove clauses containing True.
-   * Eliminate False from clauses and remove conjunctions containing False.
+   * Original step 2 & step 3 & step4
+   * step 2: Push negations inwards.
+   * step 3: Eliminate double negations when found.
+   * step 4: Eliminate True from conjunctions and remove clauses containing True.
+   *         Eliminate False from clauses and remove conjunctions containing False.
+   * When there is not negation to match (e.g. AND/OR) try to descend to terms children.
+   *
+   * Step 4 is done with the help of the 'or' and 'and' constructors which also flattern
+   * formulas with nested 'or' and 'and' terms respectively. e.g. or(a, or(b,c)) => or(a, b, c)
    */
-  def step3(formula: Term) : Term = {
-    formula match {
-      case True() | False() => formula
-      case QualifiedIdentifier(SimpleIdentifier(id), _) => formula
-      case Not(QualifiedIdentifier(SimpleIdentifier(id), _)) => formula
-      case Or(disjuncts@_*) =>
-        val c = disjuncts.map(c => step3(c))
-        if (c.contains(True())) True()
-        else {
-          // remove any False disjuncts
-          val f = c.filter(_ match {
-            case False() => false
-            case _ => true
-          })
-          if (f.lengthCompare(0) == 0) False() // if disjuncts list is empty it means it contained only False
-          else if (f.lengthCompare(1) == 0) f.head
-          else Or(f)
-        }
-      case And(conjuncts@_*) =>
-        val c = conjuncts.map(c => step3(c))
-        if (c.contains(False())) False()
-        else {
-          // remove any True conjuncts
-          val f = c.filter(_ match {
-            case True() => false
-            case _ => true
-          })
-          if (f.lengthCompare(0) == 0) True() // if conjuncts list is empty it means it contained only True
-          else if (f.lengthCompare(1) == 0) f.head
-          else And(f)
-        }
-      case _ => throw new Exception("step3") // this shouldn't happen
-    }
+  def step2(formula: Term) : Term = formula match {
+    case True() | False() => formula
+    case Not(True()) => False()
+    case Not(False()) => True()
+    case QualifiedIdentifier(SimpleIdentifier(_), _) => formula
+    case Not(QualifiedIdentifier(SimpleIdentifier(_), _)) => formula
+    case Or(disjuncts@_*) => or(disjuncts.map(c => step2(c)))
+    case And(conjuncts@_*) => and(conjuncts.map(c => step2(c)))
+    case Not(Or(disjuncts@_*)) => and(disjuncts.map(c => step2(Not(c))))
+    case Not(And(conjuncts@_*)) => or(conjuncts.map(c => step2(Not(c))))
+    case Not(Not(f)) => step2(f)
+    case _ => throw new Exception("step2")  // this shouldn't happen
   }
 
   /*
@@ -501,7 +466,7 @@ final class Formula {
    * Simplifies equality produced by tseitin into conjuction (returns elements of conjuction)
    */
   private def simplifyEquality(formula: Term): Seq[Term] = {
-    val sim_form = step1(formula)
+    val sim_form = step2(step1(formula))
     sim_form match{
       case And(conjuncts@_*) => conjuncts
       case _ => throw new Exception("simplifyEquality: unexpected input Term: " + formula)
@@ -523,7 +488,7 @@ final class Formula {
    * Simplify the formula.
    */
   private def simplify(formula: Term): Term = {
-    val simplified1 = step3(step2(step1(formula)))
+    val simplified1 = step2(step1(formula))
     val simplified2 = tseitin(simplified1)
     val simplified3 = simplifyTseitin()
     simplified3
