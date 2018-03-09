@@ -456,11 +456,22 @@ final class Formula {
    * Simplifies equality produced by tseitin into conjuction (returns elements of conjuction)
    */
   private def simplifyEquality(formula: Term): Seq[Term] = {
-    val sim_form = step2(step1(formula))
-    println("inside simplify equality : " + sim_form)
-    sim_form match{
-      case And(conjuncts@_*) => conjuncts
-      case _ => throw new Exception("simplifyEquality: unexpected input Term: " + formula)
+    formula match {
+      case Equals(a, g) =>
+        g match {
+          case And(conjuncts@_*) => {
+            val b = conjuncts(0)
+            val c = conjuncts(1)
+            List(Or(List(Not(a), b)), Or(List(Not(a), c)), Or(List(a, Not(b), Not(c))))
+          }
+          case Or(disjuncts@_*) => {
+            val b = disjuncts(0)
+            val c = disjuncts(1)
+            List(Or(List(Not(a), b, c)), Or(List(a, Not(b))), Or(List(a, Not(c))))
+          }
+          case _ => throw new Exception("simplifyEquality: unexpected input Term " + formula)
+        }
+      case _ => throw new Exception("simplifyEquality: unexpected input Term " + formula)
     }
   }
 
