@@ -307,13 +307,12 @@ final class Formula {
       variableIds(name) = variable
       variableNames(variable) = name
     })
-    
-    println(term)
-    println("*******")
+
+
+    println("Original formula: " + term)
     println("***********************")
-
-
     println("Z3 equivalence check: " + Z3Solver.checkEquals(step2(step1(term)), term))
+    println("***********************")
     // converts formula to CNF and stores it in this object
     val simplified = simplify(term)
     simplified match {
@@ -326,6 +325,7 @@ final class Formula {
         }
       case _ => throw new Exception("constructor: Unexpected formula: " + simplified + " expected cnf")
     }
+    println()
   }
 
   /*
@@ -467,6 +467,7 @@ final class Formula {
    */
   private def simplifyEquality(formula: Term): Seq[Term] = {
     val sim_form = step2(step1(formula))
+    println("inside simplify equality : " + sim_form)
     sim_form match{
       case And(conjuncts@_*) => conjuncts
       case _ => throw new Exception("simplifyEquality: unexpected input Term: " + formula)
@@ -478,9 +479,11 @@ final class Formula {
    */
   private def simplifyTseitin(): Term = {
     val cnf = ListBuffer[Term]()
+    println("Cheitin list: " + t_list)
     for (c <- t_list) {
       cnf ++= simplifyEquality(c)
     }
+    println("Cheitin list simplified: " + cnf)
     And(cnf)
   }
 
@@ -489,7 +492,9 @@ final class Formula {
    */
   private def simplify(formula: Term): Term = {
     val simplified1 = step2(step1(formula))
+    println("simplified 1 " + simplified1)
     val simplified2 = tseitin(simplified1)
+    println("simplified 2 " + simplified2)
     val simplified3 = simplifyTseitin()
     simplified3
   }
