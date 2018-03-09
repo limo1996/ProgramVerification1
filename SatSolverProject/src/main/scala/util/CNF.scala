@@ -307,17 +307,13 @@ final class Formula {
       variableIds(name) = variable
       variableNames(variable) = name
     })
-
-    /*   TMP TESTS
-    val tmp_term = Or(List(And(List(getFreshSMTVar, getFreshSMTVar, getFreshSMTVar, getFreshSMTVar, getFreshSMTVar)),
-                          And(List(getFreshSMTVar, getFreshSMTVar, getFreshSMTVar))));
-    println(tmp_term)
-    println("*************")
-    tseitin(tmp_term)
-    println("Tseitin size: " + t_list.size)
-    println(And(t_list))
+    
+    println(term)
+    println("*******")
+    println(Z3Solver.checkEquals(step3(step2(step1(term))), term))
+    println("***********************")
     println(step3(step2(step1(Equals(step3(step2(step1(term))), term)))))
-    */
+
 
     // converts formula to CNF and stores it in this object
     val simplified = simplify(term)
