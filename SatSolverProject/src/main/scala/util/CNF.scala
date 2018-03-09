@@ -489,7 +489,8 @@ final class Formula {
     else if (cnf.lengthCompare(1) == 0) addClause(cnf)
     else {
       for (c <- cnf) {
-        c match {
+        val sim = step2(c)
+        sim match {
           case Or(disjuncts@_*) => addClause(disjuncts)
           case _ => throw new Exception("simplify")
         }
@@ -509,9 +510,11 @@ final class Formula {
           for (c <- conjuncts) {
             c match {
               case Or(disjuncts@_*) => addClause(disjuncts)
+              case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) | True() | False() => addClause(List(c))
             }
           }
         }
+        case Or(disjuncts@_*) => addClause(disjuncts)
         case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) | True() | False() => addClause(List(simplified1))
       }
     } else {
