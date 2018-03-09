@@ -503,9 +503,20 @@ final class Formula {
   private def simplify(formula: Term): Unit = {
     val simplified1 = step2(step1(formula))
     println("simplified 1 " + simplified1)
-    val simplified2 = tseitin(simplified1)
-    println("simplified 2 " + simplified2)
-    simplifyTseitin()
+    if(PropositionalLogic.isCNF(simplified1)){
+      simplified1 match {
+        case And(conjuncts@_*) =>
+          for(c <- conjuncts){
+            c match {
+              case Or(disjuncts@_*) => addClause(disjuncts)
+            }
+          }
+      }
+    } else {
+      val simplified2 = tseitin(simplified1)
+      println("simplified 2 " + simplified2)
+      simplifyTseitin()
+    }
   }
 
   private def getFreshVariable: Variable = {
