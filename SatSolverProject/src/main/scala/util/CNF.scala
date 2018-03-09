@@ -309,13 +309,13 @@ final class Formula {
     })
 
 
-    println("Original formula: " + term)
-    println("***********************")
-    println("Z3 equivalence check: " + Z3Solver.checkEquals(step2(step1(term)), term))
-    println("***********************")
+    //println("Original formula: " + term)
+    //println("***********************")
+    //println("Z3 equivalence check: " + Z3Solver.checkEquals(step2(step1(term)), term))
+    //println("***********************")
     // converts formula to CNF and stores it in this object
     simplify(term)
-    println()
+    //println()
   }
 
   /*
@@ -380,14 +380,14 @@ final class Formula {
    * Equivalences generated during process are stored in t_list.
    */
   private def convertAnd(formula: Term): Term = {
-    println("convertAnd: " + formula)
+    //println("convertAnd: " + formula)
     formula match {
       case And(conjunts@_*) =>
         if (conjunts.size == 1) conjunts(0)                           // if size one return literal
         else if (conjunts.size == 2) {                                // else if size 2 replace these 2 variables with one
           val fresh_var = getFreshSMTVar                              // store the equivalence and return newly produced variable
           t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))
-          println("convertAnd: size 2 t_list: " + t_list.size)
+          //println("convertAnd: size 2 t_list: " + t_list.size)
           fresh_var
         }
         else {                                                        // if size is greater than 2 we will pick first two variables
@@ -396,7 +396,7 @@ final class Formula {
           t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))  // and call ConvertAnd recursively again.
           tmp_list += fresh_var
           tmp_list ++= conjunts.drop(2)
-          println("CA: fresh_var: " + fresh_var + " t_list: " + t_list.size + " tmp_list: " + tmp_list.size)
+          //println("CA: fresh_var: " + fresh_var + " t_list: " + t_list.size + " tmp_list: " + tmp_list.size)
           convertAnd(And(tmp_list))
         }                                                             // this exeption should never be raised
       case _ => throw new Exception("convertAnd: unexpected input Term")
@@ -409,14 +409,14 @@ final class Formula {
    * Equivalences generated during process are stored in t_list.
    */
   private def convertOr(formula: Term): Term = {
-    println("convertOr: " + formula)
+    //println("convertOr: " + formula)
     formula match {
       case Or(disjuncts@_*) =>
         if(disjuncts.size == 1) disjuncts(0)                          // if size one return literal
         else if(disjuncts.size == 2) {                                // else if size 2 replace these 2 variables with one
           val fresh_var = getFreshSMTVar                              // store the equivalence and return newly produced variable
           t_list += Equals(fresh_var, Or(disjuncts(0), disjuncts(1)))
-          println("convertOr: size 2 t_list: " + t_list.size)
+          //println("convertOr: size 2 t_list: " + t_list.size)
           fresh_var
         }
         else {                                                        // if size is greater than 2 we will pick first two variables
@@ -437,7 +437,7 @@ final class Formula {
    * All equivalences that are created during process are stored in t_list.
    */
   private def tseitin(formula: Term): Term = {
-    println("Tseitin: " + formula)
+    //println("Tseitin: " + formula)
     formula match {
       case And(conjuncts@_*) =>                                       // Conjunction
         if(conjuncts.forall(c => PropositionalLogic.isLiteral(c))) convertAnd(formula) // if all are pure literals apply convertAnd function on them
@@ -480,11 +480,11 @@ final class Formula {
    */
   private def simplifyTseitin(): Unit = {
     val cnf = ListBuffer[Term]()
-    println("Cheitin list: " + t_list)
+    //println("Cheitin list: " + t_list)
     for (c <- t_list) {
       cnf ++= simplifyEquality(c)
     }
-    println("Cheitin list simplified: " + cnf)
+    //println("Cheitin list simplified: " + cnf)
     if (cnf.lengthCompare(0) == 0) containsEmptyClause = true
     else if (cnf.lengthCompare(1) == 0) addClause(cnf)
     else {
@@ -505,16 +505,18 @@ final class Formula {
     println("simplified 1 " + simplified1)
     if(PropositionalLogic.isCNF(simplified1)){
       simplified1 match {
-        case And(conjuncts@_*) =>
-          for(c <- conjuncts){
+        case And(conjuncts@_*) => {
+          for (c <- conjuncts) {
             c match {
               case Or(disjuncts@_*) => addClause(disjuncts)
             }
           }
+        }
+        case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) | True() | False() => addClause(List(simplified1))
       }
     } else {
       val simplified2 = tseitin(simplified1)
-      println("simplified 2 " + simplified2)
+      //println("simplified 2 " + simplified2)
       simplifyTseitin()
     }
   }
