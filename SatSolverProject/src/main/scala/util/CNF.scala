@@ -2,8 +2,7 @@ package util
 
 import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term}
 import smtlib.theories.Core._
-import solvers.{Z3, Z3Solver}
-import util.PropositionalLogic.isPropositional
+import solvers.{Z3Solver}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
