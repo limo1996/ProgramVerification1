@@ -3,6 +3,7 @@ package util
 import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term}
 import smtlib.theories.Core._
 import smtlib.theories.Constructors._
+import smtlib.theories.Operations.OperationN
 import solvers.{Z3Solver}
 
 import scala.collection.mutable
@@ -308,14 +309,8 @@ final class Formula {
       variableNames(variable) = name
     })
 
-
-    //println("Original formula: " + term)
-    //println("***********************")
-    //println("Z3 equivalence check: " + Z3Solver.checkEquals(step2(step1(term)), term))
-    //println("***********************")
     // converts formula to CNF and stores it in this object
     simplify(term)
-    //println()
   }
 
   /*
@@ -339,16 +334,15 @@ final class Formula {
     case _ => throw new Exception("step1")  // this shouldn't happen
   }
 
-
   /*
    * Original step 2 & step 3 & step4
    * step 2: Push negations inwards.
    * step 3: Eliminate double negations when found.
    * step 4: Eliminate True from conjunctions and remove clauses containing True.
    *         Eliminate False from clauses and remove conjunctions containing False.
-   * When there is not negation to match (e.g. AND/OR) try to descend to terms children.
    *
-   * Step 4 is done with the help of the 'or' and 'and' constructors which also flattern
+   * When there is not negation to match (e.g. AND/OR) try to descend to terms children.
+   * Step 4 is done with the help of the 'or' and 'and' constructors which also flatten
    * formulas with nested 'or' and 'and' terms respectively. e.g. or(a, or(b,c)) => or(a, b, c)
    */
   def step2(formula: Term) : Term = formula match {
@@ -371,63 +365,19 @@ final class Formula {
    */
   private val t_list = new ListBuffer[Term]()
 
-  def printList(args: List[_]): Unit = {
-    args.foreach(println)
-  }
-
   /*
-   * Converts formula that is Conjuction of nothing else than literals to one variable which it returns.
-   * Equivalences generated during process are stored in t_list.
+   * Provided with a sequence of terms, return one term by replacing pairs of terms with newly introduced variables.
+   * The terms are expected to be literals that belong to a disjunction or conjunction (specified by the op parameter).
+   * Equivalences (new var is equivalent to the (dis/con)junction of two literals) generated during this process are
+   * stored in t_list.
    */
-  private def convertAnd(formula: Term): Term = {
-    //println("convertAnd: " + formula)
-    formula match {
-      case And(conjunts@_*) =>
-        if (conjunts.size == 1) conjunts(0)                           // if size one return literal
-        else if (conjunts.size == 2) {                                // else if size 2 replace these 2 variables with one
-          val fresh_var = getFreshSMTVar                              // store the equivalence and return newly produced variable
-          t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))
-          //println("convertAnd: size 2 t_list: " + t_list.size)
-          fresh_var
-        }
-        else {                                                        // if size is greater than 2 we will pick first two variables
-          val tmp_list = new ListBuffer[Term]()                       // replace them with new one. Add new equivalence into the list
-          val fresh_var = getFreshSMTVar                              // conjoin new variable with list without first two elements
-          t_list += Equals(fresh_var, And(conjunts(0), conjunts(1)))  // and call ConvertAnd recursively again.
-          tmp_list += fresh_var
-          tmp_list ++= conjunts.drop(2)
-          //println("CA: fresh_var: " + fresh_var + " t_list: " + t_list.size + " tmp_list: " + tmp_list.size)
-          convertAnd(And(tmp_list))
-        }                                                             // this exeption should never be raised
-      case _ => throw new Exception("convertAnd: unexpected input Term")
-
-    }
-  }
-
-  /*
-   * Converts formula that is Disjunction of nothing else than literals to one variable which it returns.
-   * Equivalences generated during process are stored in t_list.
-   */
-  private def convertOr(formula: Term): Term = {
-    //println("convertOr: " + formula)
-    formula match {
-      case Or(disjuncts@_*) =>
-        if(disjuncts.size == 1) disjuncts(0)                          // if size one return literal
-        else if(disjuncts.size == 2) {                                // else if size 2 replace these 2 variables with one
-          val fresh_var = getFreshSMTVar                              // store the equivalence and return newly produced variable
-          t_list += Equals(fresh_var, Or(disjuncts(0), disjuncts(1)))
-          //println("convertOr: size 2 t_list: " + t_list.size)
-          fresh_var
-        }
-        else {                                                        // if size is greater than 2 we will pick first two variables
-          val tmp_list = new ListBuffer[Term]()                       // replace them with new one. Add new equivalence into the list
-          val fresh_var = getFreshSMTVar                              // disjoin new variable with list without first two elements
-          t_list += Equals(fresh_var, Or(disjuncts(0), disjuncts(1))) // and call ConvertAnd recursively again.
-          tmp_list += fresh_var
-          tmp_list ++= disjuncts.drop(2)
-          convertOr(Or(tmp_list))
-        }                                                             // this exeption should never be raised
-      case _ => throw new Exception("convertAnd: unexpected input Term")
+  private def tseitinReplace(terms: Seq[Term], op: OperationN): Term = {
+    if (terms.lengthCompare(1) == 0) terms.head     // if size is one return literal
+    else {                                          // if size is greater than 1
+      val fresh_var : Term = getFreshSMTVar         // introduce new var
+      val (first_two, rest) = terms.splitAt(2)      // the list of literals is split in the first two and the rest
+      t_list += Equals(fresh_var, op(first_two))    // new var represents the (dis/con)junction of the first two literals
+      tseitinReplace(fresh_var +: rest, op)         // continue with the new formula of size = old(size) - 1
     }
   }
 
@@ -440,10 +390,10 @@ final class Formula {
     //println("Tseitin: " + formula)
     formula match {
       case And(conjuncts@_*) =>                                       // Conjunction
-        if(conjuncts.forall(c => PropositionalLogic.isLiteral(c))) convertAnd(formula) // if all are pure literals apply convertAnd function on them
+        if(conjuncts.forall(c => PropositionalLogic.isLiteral(c))) tseitinReplace(conjuncts, And) // if all are pure literals apply convertAnd function on them
         else tseitin(And(conjuncts.map(c => tseitin(c))))             // else we need to apply tseitin on children, conjoin resulting variables and call tseitin on them again
       case Or(disjuncts@_*) =>                                        // Disjunction
-        if(disjuncts.forall(c => PropositionalLogic.isLiteral(c))) convertOr(formula) // if all are pure literals apply convertOr function on them
+        if(disjuncts.forall(c => PropositionalLogic.isLiteral(c))) tseitinReplace(disjuncts, Or) // if all are pure literals apply convertOr function on them
         else tseitin(Or(disjuncts.map(c => tseitin(c))))              // else we need to apply tseitin on children, disjoin resulting variables and call tseitin on them again.
       case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) =>
         t_list :+ formula                                             // if whole formula is just one literal (could be negated) than add it to t_list and return
@@ -459,19 +409,11 @@ final class Formula {
     formula match {
       case Equals(a, g) =>
         g match {
-          case And(conjuncts@_*) => {
-            val b = conjuncts(0)
-            val c = conjuncts(1)
-            List(Or(List(Not(a), b)), Or(List(Not(a), c)), Or(List(a, Not(b), Not(c))))
-          }
-          case Or(disjuncts@_*) => {
-            val b = disjuncts(0)
-            val c = disjuncts(1)
-            List(Or(List(Not(a), b, c)), Or(List(a, Not(b))), Or(List(a, Not(c))))
-          }
+          case And(b, c) => Seq(Or(Not(a), b), Or(Not(a), c), Or(a, Not(b), Not(c))).map(step2)
+          case Or(b, c) => Seq(Or(Not(a), b, c), Or(a, Not(b)), Or(a, Not(c))).map(step2)
           case _ => throw new Exception("simplifyEquality: unexpected input Term " + formula)
         }
-      case QualifiedIdentifier(SimpleIdentifier(_), _) => List(formula)
+      case QualifiedIdentifier(SimpleIdentifier(_), _) => Seq(formula)
       case _ => throw new Exception("simplifyEquality: unexpected input Term " + formula)
     }
   }
@@ -481,17 +423,14 @@ final class Formula {
    */
   private def simplifyTseitin(): Unit = {
     val cnf = ListBuffer[Term]()
-    //println("Cheitin list: " + t_list)
     for (c <- t_list) {
       cnf ++= simplifyEquality(c)
     }
-    //println("Cheitin list simplified: " + cnf)
     if (cnf.lengthCompare(0) == 0) containsEmptyClause = true
     else if (cnf.lengthCompare(1) == 0) addClause(cnf)
     else {
       for (c <- cnf) {
-        val sim = step2(c)
-        sim match {
+        c match {
           case Or(disjuncts@_*) => addClause(disjuncts)
           case QualifiedIdentifier(SimpleIdentifier(_), _) => addClause(List(c))
           case _ => throw new Exception("simplify")
@@ -504,8 +443,8 @@ final class Formula {
    * Simplify the formula.
    */
   private def simplify(formula: Term): Unit = {
+
     val simplified1 = step2(step1(formula))
-    println("simplified 1 " + simplified1)
     if(PropositionalLogic.isCNF(simplified1)){
       simplified1 match {
         case And(conjuncts@_*) => {
