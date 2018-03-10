@@ -471,6 +471,7 @@ final class Formula {
           }
           case _ => throw new Exception("simplifyEquality: unexpected input Term " + formula)
         }
+      case QualifiedIdentifier(SimpleIdentifier(_), _) => List(formula)
       case _ => throw new Exception("simplifyEquality: unexpected input Term " + formula)
     }
   }
@@ -492,6 +493,7 @@ final class Formula {
         val sim = step2(c)
         sim match {
           case Or(disjuncts@_*) => addClause(disjuncts)
+          case QualifiedIdentifier(SimpleIdentifier(_), _) => addClause(List(c))
           case _ => throw new Exception("simplify")
         }
       }
@@ -520,6 +522,7 @@ final class Formula {
     } else {
       val simplified2 = tseitin(simplified1)
       //println("simplified 2 " + simplified2)
+      t_list += simplified2
       simplifyTseitin()
     }
   }
