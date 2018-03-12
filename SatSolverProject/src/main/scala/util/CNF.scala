@@ -323,7 +323,7 @@ final class Formula {
    * Rewrite implications and equivalences and recursively handle them.
    * For all the other terms recursively handle to their children.
    */
-  def step1(formula: Term) : Term = formula match {
+  private def step1(formula: Term) : Term = formula match {
     case True() | False() => formula
     case QualifiedIdentifier(SimpleIdentifier(_), _) => formula
     case Not(f) => Not(step1(f))
@@ -345,7 +345,7 @@ final class Formula {
    * Step 4 is done with the help of the 'or' and 'and' constructors which also flatten
    * formulas with nested 'or' and 'and' terms respectively. e.g. or(a, or(b,c)) => or(a, b, c)
    */
-  def step2(formula: Term) : Term = formula match {
+  private def step2(formula: Term) : Term = formula match {
     case True() | False() => formula
     case Not(True()) => False()
     case Not(False()) => True()
