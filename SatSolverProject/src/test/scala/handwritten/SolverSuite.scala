@@ -6,6 +6,7 @@ import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.time.{Seconds, Span}
 import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term}
 import smtlib.theories.Core._
+import solvers.DPLL
 //import solvers.CDCL
 import util.PropositionalLogic
 
@@ -235,5 +236,12 @@ class CDCLSuite extends SolverBaseTest {
   override def compute(formula: Term): Option[Map[String, Boolean]] = {
     //CDCL.checkSAT(formula)
     ???
+  }
+}
+
+class DPLLSuite extends SolverBaseTest {
+  override def compute(formula: Term): Option[Map[String, Boolean]] = {
+    val v = new DPLL(true)
+    v.checkSAT(formula)
   }
 }
