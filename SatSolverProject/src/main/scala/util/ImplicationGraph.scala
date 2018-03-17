@@ -10,7 +10,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 sealed trait Event {
 
-  protected def graph: ImplicationGraph
+  protected val graph: ImplicationGraph
 
   /**
     * What clauses and literals were disabled as an effect of this event?
@@ -72,7 +72,7 @@ class ImplicationGraph(private val literalCount: Int, val formula: Formula,
   case class DisableLiteral(clauseIndex: Int, literalIndex: Int) extends Effect
 
   sealed trait GraphEvent extends Event {
-    override protected def graph: ImplicationGraph = ImplicationGraph.this
+    override protected val graph: ImplicationGraph = ImplicationGraph.this
   }
 
   /**
