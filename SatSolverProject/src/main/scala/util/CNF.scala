@@ -4,7 +4,6 @@ import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term
 import smtlib.theories.Core._
 import smtlib.theories.Constructors._
 import smtlib.theories.Operations.OperationN
-import solvers.{Z3Solver}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -509,6 +508,7 @@ final class Formula {
   def addClause(literals: Seq[Term]): Unit = {
     require(literals.nonEmpty)
     val clause = new Clause
+    var is_true = false
     literals.foreach {
       case v@QualifiedIdentifier(SimpleIdentifier(id), _) =>
         if (!variableIds.contains(id.name)) {
@@ -516,16 +516,25 @@ final class Formula {
           variableIds(id.name) = variable
           variableNames(variable) = id.name
         }
-        clause.add(Variable.toLiteral(variableIds(id.name)))
+        val vv = Variable.toLiteral(variableIds(id.name))
+        if (!clause.literals.contains(vv))
+          clause.add(vv)
+        if (clause.literals.contains(Literal.neg(vv)))
+          is_true = true
       case v@Not(QualifiedIdentifier(SimpleIdentifier(id), _)) =>
         if (!variableIds.contains(id.name)) {
           val variable = getFreshVariable
           variableIds(id.name) = variable
           variableNames(variable) = id.name
         }
-        clause.add(Variable.toNegatedLiteral(variableIds(id.name)))
+        val vv = Variable.toNegatedLiteral(variableIds(id.name))
+        if (!clause.literals.contains(vv))
+          clause.add(vv)
+        if (clause.literals.contains(Literal.neg(vv)))
+          is_true = true
+
     }
-    clauses.append(clause)
+    if (!is_true) clauses.append(clause)
   }
 
   /**
