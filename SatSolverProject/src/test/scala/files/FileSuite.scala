@@ -34,8 +34,8 @@ class FileSuite extends FunSuite with TimeLimitedTests {
         }
       }
     }
-    collectFiles(new File(getClass.getResource("/examples").getPath))
-    collectFiles(new File(getClass.getResource("/tests").getPath))
+    collectFiles(new File(getClass.getResource("/examples").toURI.getPath))
+    collectFiles(new File(getClass.getResource("/tests").toURI.getPath))
     paths
   }
 
