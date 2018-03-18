@@ -131,7 +131,7 @@ class ImplicationGraph(private val literalCount: Int, val formula: Formula,
 
   private def debug(msg: => String): Unit = {
     if (verbose) {
-      println("  " * _currentDecisionLevel + msg)
+     // println("  " * _currentDecisionLevel + msg)
     }
   }
 

@@ -16,12 +16,17 @@ import scala.collection.mutable.ArrayBuffer
   */
 class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
 
+  protected var _implication_graph : ImplicationGraph = null;
+  protected var _cnf : Formula = null;
+  protected var _used_literals : ArrayBuffer[Boolean] = null;
   /**
     * All solvers should implement this method to satisfy the common interface.
     */
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
     val cnf = new Formula(formula)
-    val result = solve(cnf)
+    _cnf = cnf
+    _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = true)
+    val result = solve(cnf, _implication_graph)
     result.map(_.toMap)
   }
 
@@ -30,19 +35,34 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
     *
     * TODO: Implement.
     */
-  private def solve(cnf: Formula): Option[cnf.Model] = {
-    val implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = true)
-    val used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
-
+  protected def solve(cnf: Formula, implication_graph: ImplicationGraph): Option[cnf.Model] = {
     import cnf.{Variable, Literal, Model}
-    import implication_graph.{DisableClause, DisableLiteral}
+    _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
+    var model = new Model()
 
-    val model = new Model()
+    if (decision(cnf)) {
+      import implication_graph.{Decision, Consequence}
+      while (_implication_graph.nonEmpty) {
+        val ev = _implication_graph.lastEvent().get
+        ev match {
+          case Decision(i, _) => model.addLiteral(i)
+          case Consequence(i, _) => model.addLiteral(i)
+        }
+        _implication_graph.popEvent()
+      }
 
+      for (i <- _used_literals.indices) {
+        if (!_used_literals(i)) {
+          model.addLiteral(cnf.Variable.toLiteral(i + 1))
+        }
+      }
+      Some(model)
+    } else None
+  }
     /*
      * Decision rule. Decision literal chosen ... ???
      */
-    def decision(cnf: Formula): Boolean = {
+    protected def decision(cnf: Formula): Boolean = {
       if (check_consistency(cnf)) return true
       if (check_inconsistency(cnf)) return false
 
@@ -50,17 +70,17 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
       if (v1) return v2
 
       val lit = request_literal(cnf)
-      val neg_lit = Literal.neg(lit)
+      val neg_lit = cnf.Literal.neg(lit)
 
-      implication_graph.logDecision(lit)
-      disable(cnf, lit)
+      _implication_graph.logDecision(lit)
+      disable(lit)
 
       if (decision(cnf)) true
       else {
         undo_before_event_of_literal(lit)
 
-        implication_graph.logDecision(neg_lit)
-        disable(cnf, neg_lit)
+        _implication_graph.logDecision(neg_lit)
+        disable(neg_lit)
 
         if (decision(cnf)) true
         else {
@@ -71,27 +91,27 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
       }
     }
 
-    def undo_before_event_of_literal(lit: Literal): Unit = {
-      val ev1 = implication_graph.getEvent(lit)
-      var ev = implication_graph.lastEvent().get
+    protected def undo_before_event_of_literal(lit: Int): Unit = {
+      val ev1 = _implication_graph.getEvent(lit)
+      var ev = _implication_graph.lastEvent().get
       while (ev != ev1) {
         deselect_literal(ev.getLiteral)
-        enable(cnf, ev)
-        implication_graph.popEvent()
-        ev = implication_graph.lastEvent().get
+        enable(ev, _implication_graph)
+        _implication_graph.popEvent()
+        ev = _implication_graph.lastEvent().get
       }
-      enable(cnf, ev1)
-      implication_graph.popEvent()
+      enable(ev1, _implication_graph)
+      _implication_graph.popEvent()
     }
 
-    def find_unit_clause(cnf: Formula) : Option[(Literal, ArrayBuffer[Literal])] = {
+    protected def find_unit_clause(cnf: Formula) : Option[(Int, ArrayBuffer[Int])] = {
       cnf.foreachEnabled(c => {
         if (c.enabledLiteralsCount == 1) {
           val ls = c.literals.clone()
-          var unit: Literal = -1                              // will get assigned an actual literal value
+          var unit: Int = -1                              // will get assigned an actual literal value
           ls.zipWithIndex.foreach({ case(l, idx) =>
             if (cnf.Literal.isEnabled(l)) unit = l
-            else ls(idx) = Literal.neg(ls(idx))
+            else ls(idx) = _cnf.Literal.neg(ls(idx))
           })
           return Some((unit, ls - unit))
         }
@@ -99,135 +119,112 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
       None
     }
 
-    def unit_propagation0(cnf:Formula): (Boolean, Boolean) = {
+    protected def unit_propagation0(cnf:Formula): (Boolean, Boolean) = {
       val unit = find_unit_clause(cnf)
       if (unit.isDefined) {
         val (lit, preds) = unit.get
-        unit_propagation_step(cnf, lit, preds)
+        unit_propagation_step(lit, preds)
       } else (false, false)
     }
 
-    @tailrec
-    def unit_propagation_step(cnf: Formula, lit: Literal, preds: ArrayBuffer[Literal]): (Boolean, Boolean) = {
+    //@tailrec
+    protected def unit_propagation_step(lit: Int, preds: ArrayBuffer[Int]): (Boolean, Boolean) = {
       select_literal(lit)
-      implication_graph.logConsequence(lit, preds)
-      disable(cnf, lit)
+      _implication_graph.logConsequence(lit, preds)
+      disable(lit)
 
-      if (check_consistency(cnf)) return (true, true)
-      if (check_inconsistency(cnf)) return (true, false)
+      if (check_consistency(_cnf)) return (true, true)
+      if (check_inconsistency(_cnf)) return (true, false)
 
-      val unit = find_unit_clause(cnf)
+      val unit = find_unit_clause(_cnf)
       if (unit.isDefined) {
         val (lit, preds) = unit.get
-        unit_propagation_step(cnf, lit, preds)
+        unit_propagation_step(lit, preds)
       } else (false, false)
     }
 
-    def check_consistency(formula: Formula): Boolean = {
+    protected def check_consistency(formula: Formula): Boolean = {
       for (clause <- formula.clauses)
         if (clause.enabled) return false
       true
     }
 
-    def check_inconsistency(formula: Formula): Boolean = {
+    protected def check_inconsistency(formula: Formula): Boolean = {
       for (clause <- formula.clauses)
         if (clause.enabledLiteralsCount == 0) return true
       false
     }
 
-    def add_rest(formula: Formula): Unit = {
-      for (i <- used_literals.indices)
-        if (!used_literals(i)) {
-          model.addLiteral(Variable.toLiteral(i+1))
-        }
-    }
-
-    def request_literal(formula: Formula): Literal = {
-      var idx = Random.nextInt(used_literals.size)
-      while (used_literals(idx))
-        idx = Random.nextInt(used_literals.size)
-      used_literals(idx) = true
-      val lit = Variable.toLiteral(idx+1)
+    protected def request_literal(formula: Formula): Int = {
+      var idx = Random.nextInt(_used_literals.size)
+      while (_used_literals(idx))
+        idx = Random.nextInt(_used_literals.size)
+      _used_literals(idx) = true
+      val lit = formula.Variable.toLiteral(idx+1)
       if (Random.nextInt() % 2 == 1) lit
-      else Literal.neg(lit)
+      else formula.Literal.neg(lit)
     }
 
-    def select_literal(literal: Literal): Unit = {
-      used_literals(Literal.toVariable(literal)-1) = true
+    protected def select_literal(literal: Int): Unit = {
+      _used_literals(_cnf.Literal.toVariable(literal)-1) = true
     }
 
-    def deselect_literal(literal: Literal): Unit = {
-      used_literals(Literal.toVariable(literal)-1) = false
+    protected def deselect_literal(literal: Int): Unit = {
+      _used_literals(_cnf.Literal.toVariable(literal)-1) = false
     }
 
-    def disable(formula: Formula, literal: cnf.Literal): Unit = {
-      formula.clauses.zipWithIndex.foreach({ case(clause, c_idx) =>
+    protected def disable(literal: Int): Unit = {
+      _cnf.clauses.zipWithIndex.foreach({ case(clause, c_idx) =>
         if (clause.enabled && clause.literals.contains(literal)) {
           clause.enabled = false
-          implication_graph.logDisableClause(c_idx)
+          _implication_graph.logDisableClause(c_idx)
         } else {
           clause.literals.zipWithIndex.foreach({ case (lit, l_idx) =>
-            if (cnf.Literal.isEnabled(clause.literals(l_idx)) && cnf.Literal.neg(literal) == lit) {
+            if (_cnf.Literal.isEnabled(clause.literals(l_idx)) && _cnf.Literal.neg(literal) == lit) {
               clause.disableLiteral(l_idx)
-              implication_graph.logDisableLiteral(c_idx, l_idx)
+              _implication_graph.logDisableLiteral(c_idx, l_idx)
             }
           })
         }
       })
     }
 
-    def enable(formula: Formula, event: Event): Unit = {
+    protected def enable(event: Event, implication_graph: ImplicationGraph): Unit = {
       event.effects.foreach({
-        case DisableClause(i) => formula.clauses(i).enabled = true
-        case DisableLiteral(i, j) => formula.clauses(i).enableLiteral(j)
+        case implication_graph.DisableClause(i) => _cnf.clauses(i).enabled = true
+        case implication_graph.DisableLiteral(i, j) => _cnf.clauses(i).enableLiteral(j)
       })
     }
 
     /*
      * Applies pure literal rule to all pure variables found and returns simplified formula.
      */
-    def applyPureLiteralRule(cnf: Formula): Formula = {
-      val usage = ArrayBuffer.fill(cnf.literalCount) {(false, false)};        // Create array where index + 1 indicated variable (1 based) and value
-      cnf.foreachEnabled(c => {                                               // is tuple where first value indicated positive appearance and second negative.
+    protected def applyPureLiteralRule(): Unit = {
+      val usage = ArrayBuffer.fill(_cnf.literalCount) {(false, false)};       // Create array where index + 1 indicated variable (1 based) and value
+      _cnf.foreachEnabled(c => {                                              // is tuple where first value indicated positive appearance and second negative.
         c.foreachEnabled(l => {                                               // Loop through all clauses and variables in them
-          val variable: Int = cnf.Literal.toVariable(l) - 1;                  // get variable index
+          val variable: Int = _cnf.Literal.toVariable(l) - 1;                 // get variable index
           val use = usage(variable)                                           // get initial value
-          usage(variable) = (use._1 || !cnf.Literal.isNegated(l), use._2 || cnf.Literal.isNegated(l))
+          usage(variable) = (use._1 || !_cnf.Literal.isNegated(l), use._2 || _cnf.Literal.isNegated(l))
         })                                                                    // set appropriate flag to appropriate value
       })
 
       var i = 1                                                               // create counter
       for (l <- usage) {                                                      // loop through the flag array
         if ((l._1 && !l._2) || (!l._1 && l._2)) {                             // if variable occurs only positively or negatively
-          var lit: cnf.Literal = i                                            // reconstruct literal from index
+          var lit             = i                                             // reconstruct literal from index
           if (!l._1)
-            lit = cnf.Literal.neg(i)                                          // if negated negate
+            lit = _cnf.Literal.neg(i)                                         // if negated negate
           var j = 0
-          cnf.clauses.foreach(c => {                                          // loop through all clauses
+          _cnf.clauses.foreach(c => {                                         // loop through all clauses
             if (c.enabled && c.literals.contains(lit)) {                      // if clause contains pure literal
               c.enabled = false;                                              // disable the clause
-              //_implication_graph.lastEvent().get.registerDisabledClause(j)
+              _implication_graph.lastEvent().get.registerDisabledClause(j)
             }
             j += 1
           })
         }
         i += 1                                                                // increment the counter
       }
-      cnf
     }
-
-    if (decision(cnf)) {
-      import implication_graph.{Decision, Consequence}
-      while (implication_graph.nonEmpty) {
-        val ev = implication_graph.lastEvent().get
-        ev match {
-          case Decision(i, _) => model.addLiteral(i)
-          case Consequence(i, _) => model.addLiteral(i)
-        }
-        implication_graph.popEvent()
-      }
-      add_rest(cnf)
-      Some(model)
-    } else None
-  }
 }

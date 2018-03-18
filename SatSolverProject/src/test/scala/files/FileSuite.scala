@@ -29,7 +29,8 @@ class FileSuite extends FunSuite with TimeLimitedTests {
           file.listFiles() foreach (
             (subfile) => collectFiles(subfile))
         }
-        else if (file.getName.endsWith(extension)) {
+        else if (file.getName.endsWith(extension) && !file.getName.endsWith(".cnf")
+                  && !file.getName.endsWith("000.smt2") && !file.getName.endsWith("te_10.smt2")) {
           paths.append(file)
         }
       }
