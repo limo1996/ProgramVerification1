@@ -19,6 +19,7 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
   protected var _implication_graph : ImplicationGraph = null;
   protected var _cnf : Formula = null;
   protected var _used_literals : ArrayBuffer[Boolean] = null;
+  protected var _branching : ArrayBuffer[Int] = null;
   /**
     * All solvers should implement this method to satisfy the common interface.
     */
@@ -38,6 +39,7 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
   protected def solve(cnf: Formula, implication_graph: ImplicationGraph): Option[cnf.Model] = {
     import cnf.{Variable, Literal, Model}
     _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
+    _branching = ArrayBuffer.fill(cnf.literalCount){0}
     var model = new Model()
 
     if (decision(cnf)) {
@@ -77,31 +79,48 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
 
       if (decision(cnf)) true
       else {
-        undo_before_event_of_literal(lit)
+        undo_before_event_of_literal(List(lit))
 
         _implication_graph.logDecision(neg_lit)
         disable(neg_lit)
 
         if (decision(cnf)) true
         else {
-          undo_before_event_of_literal(neg_lit)
+          undo_before_event_of_literal(List(neg_lit))
           deselect_literal(lit)
           false
         }
       }
     }
 
-    protected def undo_before_event_of_literal(lit: Int): Unit = {
-      val ev1 = _implication_graph.getEvent(lit)
+  protected def undo_before_event_of_literal(lits: Seq[Int]): Unit = {
+    val ev = undo_before_event_of_literal1(lits)
+    enable(ev, _implication_graph)
+    _implication_graph.popEvent()
+  }
+
+    protected def undo_before_event_of_literal1(lits: Seq[Int]): Event = {
+      var evArr = ArrayBuffer[Event]()
+      for(l <- lits) {
+        //println(_cnf.variableNames(_cnf.Literal.toVariable(l)))
+        if(_implication_graph.containsEvent(l))
+          evArr += _implication_graph.getEvent(l)
+      }
+
       var ev = _implication_graph.lastEvent().get
-      while (ev != ev1) {
+      while (!evArr.contains(ev)) {
         deselect_literal(ev.getLiteral)
         enable(ev, _implication_graph)
         _implication_graph.popEvent()
-        ev = _implication_graph.lastEvent().get
+        val tmp_ev = _implication_graph.lastEvent()
+        if(tmp_ev.isDefined)
+          ev = tmp_ev.get
+        else
+          return ev
       }
-      enable(ev1, _implication_graph)
-      _implication_graph.popEvent()
+      ev
+      //enable(ev, _implication_graph)
+      //_implication_graph.popEvent()
     }
 
     protected def find_unit_clause(cnf: Formula) : Option[(Int, ArrayBuffer[Int])] = {
@@ -113,6 +132,7 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
             if (cnf.Literal.isEnabled(l)) unit = l
             else ls(idx) = _cnf.Literal.neg(ls(idx))
           })
+          //println("Unit propagation on " + getName(unit))
           return Some((unit, ls - unit))
         }
       })
@@ -126,6 +146,15 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
         unit_propagation_step(lit, preds)
       } else (false, false)
     }
+
+  protected def getName(literal: Int) : String = {
+    var res = ""
+    if(_cnf.Literal.isNegated(literal))
+      res += "!"
+
+    res += _cnf.variableNames(_cnf.Literal.toVariable(literal))
+    res
+  }
 
     //@tailrec
     protected def unit_propagation_step(lit: Int, preds: ArrayBuffer[Int]): (Boolean, Boolean) = {
@@ -159,18 +188,42 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
       var idx = Random.nextInt(_used_literals.size)
       while (_used_literals(idx))
         idx = Random.nextInt(_used_literals.size)
-      _used_literals(idx) = true
+      //_used_literals(idx) = true
       val lit = formula.Variable.toLiteral(idx+1)
+      select_literal(lit)
       if (Random.nextInt() % 2 == 1) lit
       else formula.Literal.neg(lit)
     }
 
+  /**
+    * Finds and returns first unassigned literal. In case no suchh literal exists returns -1.
+    * @param formula from which will be literal chosen
+    * @return first unassigned literal
+    */
+    protected def request_first_unassigned(formula: Formula): Int = {
+      for(c <- formula.clauses){
+        if(c.enabled) {
+          for (l <- c.literals){
+            if (formula.Literal.isEnabled(l)) {
+              select_literal(l)
+              return l
+            }
+          }
+        }
+      }
+      return -1
+    }
+
     protected def select_literal(literal: Int): Unit = {
-      _used_literals(_cnf.Literal.toVariable(literal)-1) = true
+      val idx = _cnf.Literal.toVariable(literal)-1
+      _used_literals(idx) = true
+      _branching(idx) += 1
     }
 
     protected def deselect_literal(literal: Int): Unit = {
-      _used_literals(_cnf.Literal.toVariable(literal)-1) = false
+      val idx = _cnf.Literal.toVariable(literal)-1
+      _used_literals(idx) = false
+      _branching(idx) = 0
     }
 
     protected def disable(literal: Int): Unit = {

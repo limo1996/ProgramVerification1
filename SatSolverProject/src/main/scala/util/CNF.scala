@@ -292,7 +292,7 @@ final class Formula {
   val clauses: ArrayBuffer[Clause] = mutable.ArrayBuffer[Clause]()
 
   private val variableIds = mutable.HashMap[String, Variable]()
-  private val variableNames = mutable.HashMap[Variable, String]()
+  val variableNames = mutable.HashMap[Variable, String]()
   private var lastId = 1
   private var containsEmptyClause = false
 
@@ -535,6 +535,18 @@ final class Formula {
 
     }
     if (!is_true) clauses.append(clause)
+  }
+
+  /**
+    *  Adds new clause to the formula
+    * For purposes of CDCL clause learning.
+    */
+  def addNewClause(literals: Seq[Int]): Unit = {
+    val clause = new Clause
+    for (l <- literals)
+      clause.add(l)
+    clause.enabled = true
+    clauses.append(clause)
   }
 
   /**

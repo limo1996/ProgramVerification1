@@ -19,7 +19,7 @@ import scala.collection.mutable
   */
 class FileSuite extends FunSuite with TimeLimitedTests {
 
-  override def timeLimit = Span(10, Seconds)
+  override def timeLimit = Span(40, Seconds)
 
   private def collectFiles(extension: String) = {
     val paths = mutable.Buffer[File]()
@@ -29,8 +29,9 @@ class FileSuite extends FunSuite with TimeLimitedTests {
           file.listFiles() foreach (
             (subfile) => collectFiles(subfile))
         }
-        else if (file.getName.endsWith(extension) && !file.getName.endsWith(".cnf")
-                  && !file.getName.endsWith("000.smt2") && !file.getName.endsWith("te_10.smt2")) {
+        else if (file.getName.endsWith(extension) /*&& !file.getName.endsWith("te_10.smt2") && !file.getName.endsWith("op_10.cnf")*/
+                  /*&& !file.getName.endsWith("000.smt2") && !file.getName.endsWith("te_10.smt2")*/) {
+          println(file)
           paths.append(file)
         }
       }

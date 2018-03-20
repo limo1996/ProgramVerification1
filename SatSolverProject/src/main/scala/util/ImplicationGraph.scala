@@ -261,6 +261,15 @@ class ImplicationGraph(private val literalCount: Int, val formula: Formula,
   }
 
   /**
+    * Returns true if graph contains event on literal.
+    * Otherwise false.
+    */
+  def containsEvent(literal: Literal) : Boolean = {
+    val variable = Literal.toVariable(literal)
+    variableEvents(variable).isDefined
+  }
+
+  /**
     * Pop the last event and undo its effects on the graph.
     */
   def popEvent(): Unit = {

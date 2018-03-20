@@ -37,9 +37,9 @@ object SolverFactory {
   def getAllSupportedSolvers: Seq[SATSolverConfiguration] = {
     // TODO: Add all your solver configurations to this list so that they can be automatically tested.
     List(
-      solvers.DPLLBaseline
-//      solvers.DPLLWithoutPure,
-//      solvers.CDCLBaseline
+//      solvers.DPLLBaseline,
+      //solvers.DPLLWithoutPure,
+      solvers.CDCLBaseline
     )
   }
 
@@ -51,7 +51,7 @@ object SolverFactory {
     case solvers.FixedProblemSolver => FixedProblemSATSolver
     case solvers.DPLLBaseline => new DPLL(usePureLiteralRule = true)
     case solvers.DPLLWithoutPure => new DPLL(usePureLiteralRule = false)
-//    case solvers.CDCLBaseline => ???
+    case solvers.CDCLBaseline => new CDCL(usePureLiteralRule = false)
   }
 
 }
