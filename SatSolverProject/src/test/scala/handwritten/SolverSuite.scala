@@ -7,7 +7,7 @@ import org.scalatest.time.{Seconds, Span}
 import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier, Term}
 import smtlib.theories.Core._
 import solvers.DPLL
-//import solvers.CDCL
+import solvers.CDCL
 import util.PropositionalLogic
 
 abstract class SolverBaseTest extends FunSuite with TimeLimitedTests {
@@ -124,8 +124,8 @@ test("!p and (!p or q) is sat") {
     compute(formula) match {
       case Some(model) =>
         assert(model.size == 2)
-        assert(model.get("q").contains(true))
-        assert(model.get("p").contains(true))
+        //assert(model.get("q").contains(true))
+        //assert(model.get("p").contains(true))
         assert(PropositionalLogic.evaluate(formula, model))
       case None => assert(false)
     }
@@ -185,10 +185,10 @@ test("!p and (!p or q) is sat") {
     compute(formula) match {
       case Some(model) =>
         assert(model.size == 4)
-        assert(model.get("n").contains(true))
+        /*assert(model.get("n").contains(true))
         assert(model.get("p").contains(true))
         assert(model.get("q").contains(true))
-        assert(model.get("r").contains(true))
+        assert(model.get("r").contains(true))*/
         assert(PropositionalLogic.evaluate(formula, model))
       case None => assert(false)
     }
@@ -234,8 +234,8 @@ test("!p and (!p or q) is sat") {
 
 class CDCLSuite extends SolverBaseTest {
   override def compute(formula: Term): Option[Map[String, Boolean]] = {
-    //CDCL.checkSAT(formula)
-    ???
+    val v = new CDCL(false)
+    v.checkSAT(formula)
   }
 }
 
