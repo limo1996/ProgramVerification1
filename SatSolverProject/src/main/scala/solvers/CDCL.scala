@@ -20,7 +20,7 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
     * All solvers should implement this method to satisfy the common interface.
     */
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
-    /*import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier}
+    import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier}
     import smtlib.theories.Core.{And, Not, Or}
     def Var(name: String): QualifiedIdentifier = {
       QualifiedIdentifier(SimpleIdentifier(SSymbol(name)))
@@ -32,12 +32,12 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
     val formula1 = And(
       Or(x, a, c, d), Or(Not(a), Not(c), d), Or(Not(c), Not(d)), Or(Not(x), c, d),
       Or(c, Not(d)), Or(x, Not(a), c, d), Or(x, a, Not(c), d))
-*/
+
     val cnf = new Formula(formula)
     _cnf = cnf
     _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = true)
     val result = solve(cnf, _implication_graph)
-    println(result.map(_.toMap))
+    //println(result.map(_.toMap))
     result.map(_.toMap)
   }
 
@@ -69,7 +69,7 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
         //val lit = request_literal(cnf)                            // -> working as well
 
         assert(lit != -1)
-        println("CDCL decision on: " + getName(lit))
+        //println("CDCL decision on: " + getName(lit))
         _implication_graph.logDecision(lit)
         disable(lit)
 
@@ -87,7 +87,7 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
     if (next_decision == -1)                                  // if there are no more decisions to make and model
       return false
 
-    println("Next decision: " + getName(next_decision))
+    //println("Next decision: " + getName(next_decision))
     select_literal(next_decision)                             // select literal
     _implication_graph.logDecision(next_decision)             // log our decision
     disable(next_decision)                                    // disable all occurrences of literal
@@ -95,8 +95,8 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
   }
 
   private def conflictResolution() : Int = {
-    println("Conflict detected!")
     val conflict_lit = _implication_graph.lastEvent().get.getLiteral
+    //println("Conflict detected!")
     var parents = getAllParentDecisionLiterals(conflict_lit, _implication_graph)
     for(c <- getClauseLiterals(_cnf.Literal.neg(conflict_lit), _implication_graph))
       parents ++= getAllParentDecisionLiterals(_cnf.Literal.neg(c), _implication_graph)
@@ -107,24 +107,32 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
       relevantDecisions += _cnf.Literal.neg(c)
 
     //println("Relevant decisions: " + relevantDecisions.map(c => getName(c)))
-    //println("Curr problem: " + getName(_implication_graph.lastEvent().get.getLiteral))
+    //println("Curr problem: " + getName(conflict_lit))
 
     undo_before_event_of_literal1(relevantDecisions)
 
-    //println("Before problem: " + getName(_implication_graph.lastEvent().get.getLiteral))
+    val dec_lit = _implication_graph.lastEvent().get.getLiteral
+    if(_branching(_cnf.Literal.toVariable(dec_lit) - 1) != 2)
+      _sibling_parents(_cnf.Literal.toVariable(dec_lit) - 1) = relevantDecisions
+
+    //println("Before problem: " + getName(dec_lit))
 
     /* Idea: recursively iterate to decision which was done not on negated literal. Than return its negation */
     while(_implication_graph.lastEvent().isDefined && _branching(_cnf.Literal.toVariable(_implication_graph.lastEvent().get.getLiteral) - 1) == 2){
       val lit = _implication_graph.lastEvent().get.getLiteral
+      relevantDecisions ++= _sibling_parents(_cnf.Literal.toVariable(lit) - 1)
       relevantDecisions -= lit
-      //relevantDecisions ++= _sibling_parents(_cnf.Literal.toVariable(lit) - 1)
+      relevantDecisions -= _cnf.Literal.neg(lit)
+      /*println("Top literal: " + getName(lit))
+      println("Sibling decisions: " + _sibling_parents(_cnf.Literal.toVariable(lit) - 1).map(c => getName(c)))
+      println("In loop: Relevant decisions: " + relevantDecisions.map(c => getName(c)))*/
       undo_before_event_of_literal1(relevantDecisions)
     }
     if(_implication_graph.lastEvent().isEmpty)
       return -1
     // pop to prev decision event,  redo cnf and return to_solve
     val ev = _implication_graph.lastEvent().get
-    println("Problem " + getName(ev.getLiteral))
+    //println("Problem " + getName(ev.getLiteral))
     val to_solve = _cnf.Literal.neg(ev.getLiteral)
     //deselect_literal(ev.getLiteral)
     enable(ev, _implication_graph)
@@ -162,11 +170,4 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
       }
     }
   }
-
-  private def learnClause() : Set[Int] = {
-    val conflict_lit = _implication_graph.lastEvent().get.getLiteral
-    getAllParentDecisionLiterals(conflict_lit, _implication_graph)
-  }
-
-
 }

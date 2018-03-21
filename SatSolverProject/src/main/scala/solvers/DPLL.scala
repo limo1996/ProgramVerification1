@@ -20,7 +20,7 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
   protected var _cnf : Formula = null;
   protected var _used_literals : ArrayBuffer[Boolean] = null;
   protected var _branching : ArrayBuffer[Int] = null;
-  protected var _sibling_parents : ArrayBuffer[ArrayBuffer[Int]] = null
+  protected var _sibling_parents : ArrayBuffer[Set[Int]] = null
   /**
     * All solvers should implement this method to satisfy the common interface.
     */
@@ -41,7 +41,7 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
     import cnf.{Variable, Literal, Model}
     _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
     _branching = ArrayBuffer.fill(cnf.literalCount){0}
-    _sibling_parents = ArrayBuffer.fill(cnf.literalCount){ArrayBuffer[Int]()}
+    _sibling_parents = ArrayBuffer.fill(cnf.literalCount){Set[Int]()}
     var model = new Model()
 
     if (decision(cnf)) {
@@ -204,14 +204,14 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
     */
     protected def request_first_unassigned(formula: Formula): Int = {
       for(c <- formula.clauses){
-        //if(c.enabled) {
+        if(c.enabled) {
           for (l <- c.literals){
-            if (!_used_literals(formula.Literal.toVariable(l) - 1)) {
+            if (_cnf.Literal.isEnabled(l)/*!_used_literals(formula.Literal.toVariable(l) - 1)*/) {
               select_literal(l)
               return l
             }
           }
-        //}
+        }
       }
       return -1
     }

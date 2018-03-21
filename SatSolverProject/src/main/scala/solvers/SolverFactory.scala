@@ -38,7 +38,7 @@ object SolverFactory {
     // TODO: Add all your solver configurations to this list so that they can be automatically tested.
     List(
 //      solvers.DPLLBaseline,
-      solvers.DPLLWithoutPure,
+      //solvers.DPLLWithoutPure,
       solvers.CDCLBaseline
     )
   }
