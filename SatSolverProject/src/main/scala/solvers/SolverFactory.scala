@@ -7,6 +7,7 @@ sealed trait SATSolverConfiguration {}
 // TODO: Extend with different configurations.
 
 case object Z3 extends SATSolverConfiguration {}
+case object IterativeDPLLBaseline extends SATSolverConfiguration {}
 case object DPLLBaseline extends SATSolverConfiguration {}
 case object DPLLWithoutPure extends SATSolverConfiguration {}
 case object CDCLBaseline extends SATSolverConfiguration {}
@@ -29,7 +30,6 @@ object SolverFactory {
     case "Z3" => Some(solvers.Z3)
     case "FixedProblemSolver" => Some(solvers.FixedProblemSolver)
     case "DPLLBaseline" => Some(solvers.DPLLBaseline)
-    case "DPLLWithoutPure" => Some(solvers.DPLLWithoutPure)
     case "CDCLBaseline" => Some(solvers.CDCLBaseline)
     case _ => None
   }
@@ -37,9 +37,10 @@ object SolverFactory {
   def getAllSupportedSolvers: Seq[SATSolverConfiguration] = {
     // TODO: Add all your solver configurations to this list so that they can be automatically tested.
     List(
-//      solvers.DPLLBaseline,
+      solvers.DPLLBaseline,
       //solvers.DPLLWithoutPure,
       solvers.CDCLBaseline
+
     )
   }
 

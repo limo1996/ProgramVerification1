@@ -124,8 +124,6 @@ test("!p and (!p or q) is sat") {
     compute(formula) match {
       case Some(model) =>
         assert(model.size == 2)
-        //assert(model.get("q").contains(true))
-        //assert(model.get("p").contains(true))
         assert(PropositionalLogic.evaluate(formula, model))
       case None => assert(false)
     }
@@ -185,10 +183,6 @@ test("!p and (!p or q) is sat") {
     compute(formula) match {
       case Some(model) =>
         assert(model.size == 4)
-        /*assert(model.get("n").contains(true))
-        assert(model.get("p").contains(true))
-        assert(model.get("q").contains(true))
-        assert(model.get("r").contains(true))*/
         assert(PropositionalLogic.evaluate(formula, model))
       case None => assert(false)
     }
