@@ -35,7 +35,7 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
 
     val cnf = new Formula(formula)
     _cnf = cnf
-    _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = true)
+    _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
     val result = solve(cnf, _implication_graph)
     //println(result.map(_.toMap))
     result.map(_.toMap)
@@ -111,6 +111,8 @@ class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteral
 
     undo_before_event_of_literal1(relevantDecisions)
 
+    if(_implication_graph.lastEvent().isEmpty)
+      return -1
     val dec_lit = _implication_graph.lastEvent().get.getLiteral
     if(_branching(_cnf.Literal.toVariable(dec_lit) - 1) != 2)
       _sibling_parents(_cnf.Literal.toVariable(dec_lit) - 1) = relevantDecisions
