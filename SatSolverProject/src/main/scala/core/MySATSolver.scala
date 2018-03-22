@@ -27,7 +27,7 @@ private class Settings(args: Array[String]) {
 
   import MySATSolver.abortExecution
 
-  if(args.length != 2 && args.length != 3) {
+  if (args.length != 2 && args.length != 3) {
     abortExecution("Wrong number of command-line arguments specified (expected 2 or 3)")
   }
 
@@ -119,6 +119,8 @@ object MySATSolver {
       case None =>
     }
     println(solver.outputResult(result))
+
+    Evaluator.run()
   }
 
   // A Scala method that, unlike method main above, has a return value
