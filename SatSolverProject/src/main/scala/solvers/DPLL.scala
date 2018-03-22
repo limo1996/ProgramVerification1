@@ -27,7 +27,7 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
     val cnf = new Formula(formula)
     _cnf = cnf
-    _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = true)
+    _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
     val result = solve(cnf, _implication_graph)
     result.map(_.toMap)
   }
@@ -38,62 +38,79 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
     * TODO: Implement.
     */
   protected def solve(cnf: Formula, implication_graph: ImplicationGraph): Option[cnf.Model] = {
-    import cnf.{Variable, Literal, Model}
     _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
     _branching = ArrayBuffer.fill(cnf.literalCount){0}
     _sibling_parents = ArrayBuffer.fill(cnf.literalCount){Set[Int]()}
-    var model = new Model()
+
+    val (isTrivial, model) = checkTrivial(cnf, implication_graph)
+    if (isTrivial) return model
 
     if (decision(cnf)) {
-      import implication_graph.{Decision, Consequence}
-      while (_implication_graph.nonEmpty) {
-        val ev = _implication_graph.lastEvent().get
-        ev match {
-          case Decision(i, _) => model.addLiteral(i)
-          case Consequence(i, _) => model.addLiteral(i)
-        }
-        _implication_graph.popEvent()
-      }
-
-      for (i <- _used_literals.indices) {
-        if (!_used_literals(i)) {
-          model.addLiteral(cnf.Variable.toLiteral(i + 1))
-        }
-      }
-      Some(model)
+      Some(buildModel(cnf, implication_graph))
     } else None
   }
-    /*
-     * Decision rule. Decision literal chosen ... ???
-     */
-    protected def decision(cnf: Formula): Boolean = {
-      if (check_consistency(cnf)) return true
-      if (check_inconsistency(cnf)) return false
 
-      val (v1, v2) = unit_propagation0(cnf)
-      if (v1) return v2
+  protected def buildModel(cnf: Formula, implication_graph: ImplicationGraph): cnf.Model = {
+    import cnf.Model
+    import implication_graph.{Decision, Consequence}
 
-      val lit = request_literal(cnf)
-      val neg_lit = cnf.Literal.neg(lit)
+    val model = new Model()
 
-      _implication_graph.logDecision(lit)
-      disable(lit)
+    while (implication_graph.nonEmpty) {
+      val ev = implication_graph.lastEvent().get
+      ev match {
+        case Decision(i, _) => model.addLiteral(i)
+        case Consequence(i, _) => model.addLiteral(i)
+      }
+      implication_graph.popEvent()
+    }
+
+    for (i <- _used_literals.indices) {
+      if (!_used_literals(i)) {
+        model.addLiteral(cnf.Variable.toLiteral(i + 1))
+      }
+    }
+
+    model
+  }
+
+  protected def checkTrivial(cnf: Formula, implication_graph: ImplicationGraph): (Boolean, Option[cnf.Model]) = {
+    if (cnf.hasEmptyClause) (true, None)
+    else if (cnf.clauses.isEmpty) (true, Some(buildModel(cnf, implication_graph)))
+    else (false, None)
+  }
+
+  /*
+   * Decision rule. Decision literal chosen ... ???
+   */
+  protected def decision(cnf: Formula): Boolean = {
+    if (check_consistency(cnf)) return true
+    if (check_inconsistency(cnf)) return false
+
+    val (v1, v2) = unit_propagation0(cnf)
+    if (v1) return v2
+
+    val lit = request_literal(cnf)
+    val neg_lit = cnf.Literal.neg(lit)
+
+    _implication_graph.logDecision(lit)
+    disable(lit)
+
+    if (decision(cnf)) true
+    else {
+      undo_before_event_of_literal(Set(lit))
+
+      _implication_graph.logDecision(neg_lit)
+      disable(neg_lit)
 
       if (decision(cnf)) true
       else {
-        undo_before_event_of_literal(Set(lit))
-
-        _implication_graph.logDecision(neg_lit)
-        disable(neg_lit)
-
-        if (decision(cnf)) true
-        else {
-          undo_before_event_of_literal(Set(neg_lit))
-          deselect_literal(lit)
-          false
-        }
+        undo_before_event_of_literal(Set(neg_lit))
+        deselect_literal(lit)
+        false
       }
     }
+  }
 
   protected def undo_before_event_of_literal(lits: Set[Int]): Unit = {
     val ev = undo_before_event_of_literal1(lits)

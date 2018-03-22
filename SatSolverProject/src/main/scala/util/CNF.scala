@@ -442,24 +442,24 @@ final class Formula {
    * Simplify the formula.
    */
   private def simplify(formula: Term): Unit = {
-
     val simplified1 = step2(step1(formula))
-    if(PropositionalLogic.isCNF(simplified1)){
+
+    if (PropositionalLogic.isCNF(simplified1)) {
       simplified1 match {
-        case And(conjuncts@_*) => {
+        case True() =>
+        case False() => containsEmptyClause = true
+        case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) => addClause(List(simplified1))
+        case Or(disjuncts@_*) => addClause(disjuncts)
+        case And(conjuncts@_*) =>
           for (c <- conjuncts) {
             c match {
+              case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) => addClause(List(c))
               case Or(disjuncts@_*) => addClause(disjuncts)
-              case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) | True() | False() => addClause(List(c))
             }
           }
-        }
-        case Or(disjuncts@_*) => addClause(disjuncts)
-        case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) | True() | False() => addClause(List(simplified1))
       }
     } else {
       val simplified2 = tseitin(simplified1)
-      //println("simplified 2 " + simplified2)
       t_list += simplified2
       simplifyTseitin()
     }
