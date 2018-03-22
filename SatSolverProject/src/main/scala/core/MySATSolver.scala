@@ -9,6 +9,7 @@ sealed trait InputFormat {}
 
 case object SMTLib extends InputFormat {}
 case object DIMACS extends InputFormat {}
+case object SUDOKU extends InputFormat {}
 
 /**
   * A class for parsing command line arguments.
@@ -42,6 +43,7 @@ private class Settings(args: Array[String]) {
       args(2) match {
         case "--cnf" | "/cnf" | "--dimacs" | "/dimacs" => DIMACS
         case "--smtlib" | "/smtlib" => SMTLib
+        case "--sudoku" => SUDOKU
         case s => abortExecution(s"Unknown input format: $s")
       }
     } else {
@@ -74,6 +76,11 @@ object MySATSolver {
         case DIMACS =>
           // convert from .cnf (DIMACS) format
           convertDIMACSFileToSMTLIBv2(args(1))
+        case SUDOKU => {
+          val solver = new solvers.SudokuSolver(true, false)
+          solver.solve(settings.file)
+          return
+        }
       }
     }
 
