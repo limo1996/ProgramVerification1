@@ -7,7 +7,6 @@ import scala.collection.mutable.StringBuilder
 
 import core.MySATSolver
 import core.SATSolver
-import core.CNFConversion
 
 
 import java.nio.file.{Paths, Files}
