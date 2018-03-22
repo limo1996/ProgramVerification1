@@ -329,12 +329,16 @@ final class Formula {
     case Or(disjuncts@_*) => Or(disjuncts.map(c => step1(c)))
     case And(conjuncts@_*) => And(conjuncts.map(c => step1(c)))
     case Implies(f, g) => Or(Not(step1(f)), step1(g))
-    case Equals(f, g) => And(Or(Not(step1(f)), step1(g)), Or(step1(f), Not(step1(g))))
+    case Equals(f, g) =>
+      // Evaluate subexpressions once.
+      val ff = step1(f)
+      val gg = step1(g)
+      And(Or(Not(ff), gg), Or(ff, Not(gg)))
     case _ => throw new Exception("step1")  // this shouldn't happen
   }
 
   /*
-   * Original step 2 & step 3 & step4
+   * Original step 2 & step 3 & step 4
    * step 2: Push negations inwards.
    * step 3: Eliminate double negations when found.
    * step 4: Eliminate True from conjunctions and remove clauses containing True.
