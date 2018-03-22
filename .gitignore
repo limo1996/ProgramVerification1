@@ -6,3 +6,5 @@ target
 
 out/
 project1.pdf
+
+*.result
