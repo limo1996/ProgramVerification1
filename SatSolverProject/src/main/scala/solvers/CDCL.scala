@@ -14,7 +14,8 @@ import smtlib.parser.Terms
   * @param usePureLiteralRule True if the implementation should use
   *                           the pure literal rule.
   */
-class CDCL(override val usePureLiteralRule: Boolean, override val useTseitinConversion : Boolean) extends DPLL(usePureLiteralRule, useTseitinConversion) {
+class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolean, override val useTseitinConversion : Boolean)
+  extends DPLL(usePureLiteralRule, useTseitinConversion) {
 
   /**
     * All solvers should implement this method to satisfy the common interface.
@@ -86,7 +87,9 @@ class CDCL(override val usePureLiteralRule: Boolean, override val useTseitinConv
     var parents = getAllParentDecisionLiterals(conflict_lit, _implication_graph)
     for(c <- getClauseLiterals(_cnf.Literal.neg(conflict_lit), _implication_graph))
       parents ++= getAllParentDecisionLiterals(_cnf.Literal.neg(c), _implication_graph)
-    _cnf.addNewClause(parents.toSeq)        // clause learning
+
+    if(clauseLearning)
+      _cnf.addNewClause(parents.toSeq)        // clause learning
 
     var relevantDecisions = Set[Int]()
     for (c <- parents)

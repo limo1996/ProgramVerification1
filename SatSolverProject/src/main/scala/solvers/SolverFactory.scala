@@ -13,6 +13,7 @@ case object DPLLWithoutPure extends SATSolverConfiguration {}
 case object DPLLTseitin extends SATSolverConfiguration {}
 case object CDCLBaseline extends SATSolverConfiguration {}
 case object CDCLTseitin extends SATSolverConfiguration {}
+case object CDCLWithoutLearning extends  SATSolverConfiguration {}
 case object FixedProblemSolver extends SATSolverConfiguration {}
 
 /**
@@ -36,6 +37,7 @@ object SolverFactory {
     case "DPLLTseitin" => Some(solvers.DPLLTseitin)
     case "CDCLBaseline" => Some(solvers.CDCLBaseline)
     case "CDCLTseitin" => Some(solvers.CDCLTseitin)
+    case "CDCLWithoutLearning" => Some(solvers.CDCLWithoutLearning)
     case _ => None
   }
 
@@ -46,7 +48,8 @@ object SolverFactory {
       //solvers.DPLLWithoutPure,
       //solvers.DPLLTseitin,
       solvers.CDCLBaseline,
-      solvers.CDCLTseitin
+      solvers.CDCLTseitin,
+      solvers.CDCLWithoutLearning
     )
   }
 
@@ -59,8 +62,9 @@ object SolverFactory {
     case solvers.DPLLBaseline => new DPLL(usePureLiteralRule = true, useTseitinConversion = false)
     case solvers.DPLLWithoutPure => new DPLL(usePureLiteralRule = false, useTseitinConversion = false)
     case solvers.DPLLTseitin => new DPLL(usePureLiteralRule = false, useTseitinConversion = true)
-    case solvers.CDCLBaseline => new CDCL(usePureLiteralRule = false, useTseitinConversion = false)
-    case solvers.CDCLTseitin => new CDCL(usePureLiteralRule = false, useTseitinConversion = true)
+    case solvers.CDCLBaseline => new CDCL(clauseLearning = true, usePureLiteralRule = false, useTseitinConversion = false)
+    case solvers.CDCLTseitin => new CDCL(clauseLearning = true, usePureLiteralRule = false, useTseitinConversion = true)
+    case solvers.CDCLWithoutLearning => new CDCL(clauseLearning = false, usePureLiteralRule = false, useTseitinConversion = false)
   }
 
 }

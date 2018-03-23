@@ -57,8 +57,8 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
       case solvers.DPLLWithoutPure => new DPLL(false, false)
       //case solvers.IterativeDPLLBaseline => new IterativeDPLLBaseline()
       case solvers.DPLLTseitin => new DPLL(false, true)
-      case solvers.CDCLBaseline => new CDCL(false, false)
-      case solvers.CDCLTseitin => new CDCL(false, true)
+      case solvers.CDCLBaseline => new CDCL(true, false, false)
+      case solvers.CDCLTseitin => new CDCL(true, false, true)
     }
   }
 
