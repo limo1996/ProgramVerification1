@@ -315,6 +315,56 @@ final class Formula {
   }
 
   /*
+   * The functions step? implement different steps of the 'Conversion to CNF'
+   * algorithm presented in lecture slide 10.
+   */
+
+  /*
+   * Original step 1
+   * Rewrite implications and equivalences and recursively handle them.
+   * For all the other terms recursively handle to their children.
+   */
+  private def step1(formula: Term) : Term = formula match {
+    case True() | False() => formula
+    case QualifiedIdentifier(SimpleIdentifier(_), _) => formula
+    case Not(f) => Not(step1(f))
+    case Or(disjuncts@_*) => Or(disjuncts.map(c => step1(c)))
+    case And(conjuncts@_*) => And(conjuncts.map(c => step1(c)))
+    case Implies(f, g) => Or(Not(step1(f)), step1(g))
+    case Equals(f, g) =>
+      // Evaluate subexpressions once.
+      val ff = step1(f)
+      val gg = step1(g)
+      And(Or(Not(ff), gg), Or(ff, Not(gg)))
+    case _ => throw new Exception("step1")  // this shouldn't happen
+  }
+
+  /*
+   * Original step 2 & step 3 & step 4
+   * step 2: Push negations inwards.
+   * step 3: Eliminate double negations when found.
+   * step 4: Eliminate True from conjunctions and remove clauses containing True.
+   *         Eliminate False from clauses and remove conjunctions containing False.
+   *
+   * When there is not negation to match (e.g. AND/OR) try to descend to terms children.
+   * Step 4 is done with the help of the 'or' and 'and' constructors which also flatten
+   * formulas with nested 'or' and 'and' terms respectively. e.g. or(a, or(b,c)) => or(a, b, c)
+   */
+  private def step2(formula: Term) : Term = formula match {
+    case True() | False() => formula
+    case Not(True()) => False()
+    case Not(False()) => True()
+    case QualifiedIdentifier(SimpleIdentifier(_), _) => formula
+    case Not(QualifiedIdentifier(SimpleIdentifier(_), _)) => formula
+    case Or(disjuncts@_*) => or(disjuncts.map(c => step2(c)))
+    case And(conjuncts@_*) => and(conjuncts.map(c => step2(c)))
+    case Not(Or(disjuncts@_*)) => and(disjuncts.map(c => step2(Not(c))))
+    case Not(And(conjuncts@_*)) => or(conjuncts.map(c => step2(Not(c))))
+    case Not(Not(f)) => step2(f)
+    case _ => throw new Exception("step2")  // this shouldn't happen
+  }
+
+  /*
    * List that after call of tseitin will contain all equivalences that tseitin produses.
    * We will still need to simplify them thought.
    */
@@ -400,16 +450,17 @@ final class Formula {
     val simplified1 = CNFConverter.convert(formula, useTseitin)
     if(!useTseitin || PropositionalLogic.isCNF(simplified1)){
       simplified1 match {
-        case And(conjuncts@_*) => {
+        case True() =>
+        case False() => containsEmptyClause = true
+        case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) => addClause(List(simplified1))
+        case Or(disjuncts@_*) => addClause(disjuncts)
+        case And(conjuncts@_*) =>
           for (c <- conjuncts) {
             c match {
+              case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) => addClause(List(c))
               case Or(disjuncts@_*) => addClause(disjuncts)
-              case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) | True() | False() => addClause(List(c))
             }
           }
-        }
-        case Or(disjuncts@_*) => addClause(disjuncts)
-        case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) | True() | False() => addClause(List(simplified1))
       }
     } else {
       val simplified2 = tseitin(simplified1)

@@ -18,11 +18,11 @@ import scala.collection.mutable
   * A base class for collecting all example tests.
   */
 class FileSuite extends FunSuite with TimeLimitedTests {
-
   override def timeLimit = Span(40, Seconds)
 
   private def collectFiles(extension: String) = {
     val paths = mutable.Buffer[File]()
+
     def collectFiles(file: File): Unit = {
       if (file.exists) {
         if (file.isDirectory) {
@@ -31,11 +31,11 @@ class FileSuite extends FunSuite with TimeLimitedTests {
         }
         else if (file.getName.endsWith(extension) && !file.getName.endsWith("te_10.smt2") && !file.getName.endsWith("op_10.cnf")
                   /*&& !file.getName.endsWith("000.smt2") && !file.getName.endsWith("te_10.smt2")*/) {
-          println(file)
           paths.append(file)
         }
       }
     }
+
     collectFiles(new File(getClass.getResource("/examples").toURI.getPath))
     collectFiles(new File(getClass.getResource("/tests").toURI.getPath))
     collectFiles(new File(getClass.getResource("/sudoku").toURI.getPath))

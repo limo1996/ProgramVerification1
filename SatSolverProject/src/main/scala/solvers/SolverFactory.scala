@@ -7,6 +7,7 @@ sealed trait SATSolverConfiguration {}
 // TODO: Extend with different configurations.
 
 case object Z3 extends SATSolverConfiguration {}
+case object IterativeDPLLBaseline extends SATSolverConfiguration {}
 case object DPLLBaseline extends SATSolverConfiguration {}
 case object DPLLWithoutPure extends SATSolverConfiguration {}
 case object DPLLTseitin extends SATSolverConfiguration {}
