@@ -5,6 +5,8 @@ import smtlib.theories.Core._
 import smtlib.theories.Constructors._
 import smtlib.theories.Operations.OperationN
 
+import core.CNFConverter
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.ListBuffer
@@ -299,7 +301,7 @@ final class Formula {
   /**
     * Additional constructor that converts the passed in formula to CNF form.
     */
-  def this(term: Term) {
+  def this(term: Term, useTseitin: Boolean = false) {
     this()
     val originalVariables = PropositionalLogic.propositionalVariables(term)
     originalVariables.foreach(name => {
@@ -309,53 +311,7 @@ final class Formula {
     })
 
     // converts formula to CNF and stores it in this object
-    simplify(term)
-  }
-
-  /*
-   * The functions step? implement different steps of the 'Conversion to CNF'
-   * algorithm presented in lecture slide 10.
-   */
-
-  /*
-   * Original step 1
-   * Rewrite implications and equivalences and recursively handle them.
-   * For all the other terms recursively handle to their children.
-   */
-  private def step1(formula: Term) : Term = formula match {
-    case True() | False() => formula
-    case QualifiedIdentifier(SimpleIdentifier(_), _) => formula
-    case Not(f) => Not(step1(f))
-    case Or(disjuncts@_*) => Or(disjuncts.map(c => step1(c)))
-    case And(conjuncts@_*) => And(conjuncts.map(c => step1(c)))
-    case Implies(f, g) => Or(Not(step1(f)), step1(g))
-    case Equals(f, g) => And(Or(Not(step1(f)), step1(g)), Or(step1(f), Not(step1(g))))
-    case _ => throw new Exception("step1")  // this shouldn't happen
-  }
-
-  /*
-   * Original step 2 & step 3 & step4
-   * step 2: Push negations inwards.
-   * step 3: Eliminate double negations when found.
-   * step 4: Eliminate True from conjunctions and remove clauses containing True.
-   *         Eliminate False from clauses and remove conjunctions containing False.
-   *
-   * When there is not negation to match (e.g. AND/OR) try to descend to terms children.
-   * Step 4 is done with the help of the 'or' and 'and' constructors which also flatten
-   * formulas with nested 'or' and 'and' terms respectively. e.g. or(a, or(b,c)) => or(a, b, c)
-   */
-  private def step2(formula: Term) : Term = formula match {
-    case True() | False() => formula
-    case Not(True()) => False()
-    case Not(False()) => True()
-    case QualifiedIdentifier(SimpleIdentifier(_), _) => formula
-    case Not(QualifiedIdentifier(SimpleIdentifier(_), _)) => formula
-    case Or(disjuncts@_*) => or(disjuncts.map(c => step2(c)))
-    case And(conjuncts@_*) => and(conjuncts.map(c => step2(c)))
-    case Not(Or(disjuncts@_*)) => and(disjuncts.map(c => step2(Not(c))))
-    case Not(And(conjuncts@_*)) => or(conjuncts.map(c => step2(Not(c))))
-    case Not(Not(f)) => step2(f)
-    case _ => throw new Exception("step2")  // this shouldn't happen
+    simplify(term, useTseitin)
   }
 
   /*
@@ -386,16 +342,15 @@ final class Formula {
    * All equivalences that are created during process are stored in t_list.
    */
   private def tseitin(formula: Term): Term = {
-    //println("Tseitin: " + formula)
     formula match {
-      case And(conjuncts@_*) =>                                       // Conjunction
+      case And(conjuncts@_*) =>                                                        // Conjunction
         if(conjuncts.forall(c => PropositionalLogic.isLiteral(c))) tseitinReplace(conjuncts, And) // if all are pure literals apply convertAnd function on them
-        else tseitin(And(conjuncts.map(c => tseitin(c))))             // else we need to apply tseitin on children, conjoin resulting variables and call tseitin on them again
-      case Or(disjuncts@_*) =>                                        // Disjunction
-        if(disjuncts.forall(c => PropositionalLogic.isLiteral(c))) tseitinReplace(disjuncts, Or) // if all are pure literals apply convertOr function on them
-        else tseitin(Or(disjuncts.map(c => tseitin(c))))              // else we need to apply tseitin on children, disjoin resulting variables and call tseitin on them again.
+        else tseitin(CNFConverter.handleConjunctsSeq(conjuncts.map(c => tseitin(c))))  // else we need to apply tseitin on children, conjoin resulting variables and call tseitin on them again
+      case Or(disjuncts@_*) =>                                                         // Disjunction
+        if(disjuncts.forall(c => PropositionalLogic.isLiteral(c))) tseitinReplace(disjuncts, Or)  // if all are pure literals apply convertOr function on them
+        else tseitin(CNFConverter.handleDisjunctsSeq(disjuncts.map(c => tseitin(c))))  // else we need to apply tseitin on children, disjoin resulting variables and call tseitin on them again.
       case QualifiedIdentifier(SimpleIdentifier(_), _) | Not(QualifiedIdentifier(SimpleIdentifier(_), _)) =>
-        t_list :+ formula                                             // if whole formula is just one literal (could be negated) than add it to t_list and return
+        t_list :+ formula                                                              // if whole formula is just one literal (could be negated) than add it to t_list and return
         formula
       case _ => throw new Exception("tseitin: unexpected input Term: " + formula)
     }
@@ -408,8 +363,8 @@ final class Formula {
     formula match {
       case Equals(a, g) =>
         g match {
-          case And(b, c) => Seq(Or(Not(a), b), Or(Not(a), c), Or(a, Not(b), Not(c))).map(step2)
-          case Or(b, c) => Seq(Or(Not(a), b, c), Or(a, Not(b)), Or(a, Not(c))).map(step2)
+          case And(b, c) => Seq(Or(Not(a), b), Or(Not(a), c), Or(a, Not(b), Not(c))).map(CNFConverter.step23)
+          case Or(b, c) => Seq(Or(Not(a), b, c), Or(a, Not(b)), Or(a, Not(c))).map(CNFConverter.step23)
           case _ => throw new Exception("simplifyEquality: unexpected input Term " + formula)
         }
       case QualifiedIdentifier(SimpleIdentifier(_), _) => Seq(formula)
@@ -441,10 +396,9 @@ final class Formula {
   /**
    * Simplify the formula.
    */
-  private def simplify(formula: Term): Unit = {
-
-    val simplified1 = step2(step1(formula))
-    if(PropositionalLogic.isCNF(simplified1)){
+  private def simplify(formula: Term, useTseitin : Boolean): Unit = {
+    val simplified1 = CNFConverter.convert(formula, useTseitin)
+    if(!useTseitin || PropositionalLogic.isCNF(simplified1)){
       simplified1 match {
         case And(conjuncts@_*) => {
           for (c <- conjuncts) {
@@ -459,7 +413,6 @@ final class Formula {
       }
     } else {
       val simplified2 = tseitin(simplified1)
-      //println("simplified 2 " + simplified2)
       t_list += simplified2
       simplifyTseitin()
     }

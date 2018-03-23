@@ -9,7 +9,9 @@ sealed trait SATSolverConfiguration {}
 case object Z3 extends SATSolverConfiguration {}
 case object DPLLBaseline extends SATSolverConfiguration {}
 case object DPLLWithoutPure extends SATSolverConfiguration {}
+case object DPLLTseitin extends SATSolverConfiguration {}
 case object CDCLBaseline extends SATSolverConfiguration {}
+case object CDCLTseitin extends SATSolverConfiguration {}
 case object FixedProblemSolver extends SATSolverConfiguration {}
 
 /**
@@ -30,16 +32,20 @@ object SolverFactory {
     case "FixedProblemSolver" => Some(solvers.FixedProblemSolver)
     case "DPLLBaseline" => Some(solvers.DPLLBaseline)
     case "DPLLWithoutPure" => Some(solvers.DPLLWithoutPure)
+    case "DPLLTseitin" => Some(solvers.DPLLTseitin)
     case "CDCLBaseline" => Some(solvers.CDCLBaseline)
+    case "CDCLTseitin" => Some(solvers.CDCLTseitin)
     case _ => None
   }
 
   def getAllSupportedSolvers: Seq[SATSolverConfiguration] = {
     // TODO: Add all your solver configurations to this list so that they can be automatically tested.
     List(
-//      solvers.DPLLBaseline,
+      //solvers.DPLLBaseline,
       //solvers.DPLLWithoutPure,
-      solvers.CDCLBaseline
+      //solvers.DPLLTseitin,
+      solvers.CDCLBaseline,
+      solvers.CDCLTseitin
     )
   }
 
@@ -49,9 +55,11 @@ object SolverFactory {
   def constructSolver(solverConfiguration: SATSolverConfiguration): SATSolver = solverConfiguration match {
     case solvers.Z3 => Z3Solver
     case solvers.FixedProblemSolver => FixedProblemSATSolver
-    case solvers.DPLLBaseline => new DPLL(usePureLiteralRule = true)
-    case solvers.DPLLWithoutPure => new DPLL(usePureLiteralRule = false)
-    case solvers.CDCLBaseline => new CDCL(usePureLiteralRule = false)
+    case solvers.DPLLBaseline => new DPLL(usePureLiteralRule = true, useTseitinConversion = false)
+    case solvers.DPLLWithoutPure => new DPLL(usePureLiteralRule = false, useTseitinConversion = false)
+    case solvers.DPLLTseitin => new DPLL(usePureLiteralRule = false, useTseitinConversion = true)
+    case solvers.CDCLBaseline => new CDCL(usePureLiteralRule = false, useTseitinConversion = false)
+    case solvers.CDCLTseitin => new CDCL(usePureLiteralRule = false, useTseitinConversion = true)
   }
 
 }

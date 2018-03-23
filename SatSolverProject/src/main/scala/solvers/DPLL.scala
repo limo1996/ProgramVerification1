@@ -13,8 +13,9 @@ import scala.collection.mutable.ArrayBuffer
   *
   * @param usePureLiteralRule True if the implementation should use
   *                           the pure literal rule.
+  * @param useTseitinConversion Indicates whether to use tseitin conversion or not.
   */
-class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
+class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) extends SATSolver {
 
   protected var _implication_graph : ImplicationGraph = null;
   protected var _cnf : Formula = null;
@@ -25,7 +26,7 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
     * All solvers should implement this method to satisfy the common interface.
     */
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
-    val cnf = new Formula(formula)
+    val cnf = new Formula(formula, useTseitinConversion)
     _cnf = cnf
     _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = true)
     val result = solve(cnf, _implication_graph)
@@ -158,8 +159,8 @@ class DPLL(val usePureLiteralRule: Boolean) extends SATSolver {
     res
   }
 
-    //@tailrec
-    protected def unit_propagation_step(lit: Int, preds: ArrayBuffer[Int]): (Boolean, Boolean) = {
+    @tailrec
+    private def unit_propagation_step(lit: Int, preds: ArrayBuffer[Int]): (Boolean, Boolean) = {
       select_literal(lit)
       _implication_graph.logConsequence(lit, preds)
       disable(lit)

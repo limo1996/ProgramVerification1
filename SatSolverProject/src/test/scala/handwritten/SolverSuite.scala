@@ -234,14 +234,14 @@ test("!p and (!p or q) is sat") {
 
 class CDCLSuite extends SolverBaseTest {
   override def compute(formula: Term): Option[Map[String, Boolean]] = {
-    val v = new CDCL(false)
+    val v = new CDCL(false, false)
     v.checkSAT(formula)
   }
 }
 
 class DPLLSuite extends SolverBaseTest {
   override def compute(formula: Term): Option[Map[String, Boolean]] = {
-    val v = new DPLL(true)
+    val v = new DPLL(true, false)
     v.checkSAT(formula)
   }
 }

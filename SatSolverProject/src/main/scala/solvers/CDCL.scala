@@ -14,32 +14,18 @@ import smtlib.parser.Terms
   * @param usePureLiteralRule True if the implementation should use
   *                           the pure literal rule.
   */
-class CDCL(override val usePureLiteralRule: Boolean) extends DPLL(usePureLiteralRule) {
+class CDCL(override val usePureLiteralRule: Boolean, override val useTseitinConversion : Boolean) extends DPLL(usePureLiteralRule, useTseitinConversion) {
 
   /**
     * All solvers should implement this method to satisfy the common interface.
     */
-  override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
-    import smtlib.parser.Terms.{QualifiedIdentifier, SSymbol, SimpleIdentifier}
-    import smtlib.theories.Core.{And, Not, Or}
-    def Var(name: String): QualifiedIdentifier = {
-      QualifiedIdentifier(SimpleIdentifier(SSymbol(name)))
-    }
-    val x = Var("x")
-    val a = Var("a")
-    val c = Var("c")
-    val d = Var("d")
-    val formula1 = And(
-      Or(x, a, c, d), Or(Not(a), Not(c), d), Or(Not(c), Not(d)), Or(Not(x), c, d),
-      Or(c, Not(d)), Or(x, Not(a), c, d), Or(x, a, Not(c), d))
-
+  /*override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
     val cnf = new Formula(formula)
     _cnf = cnf
     _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = true)
     val result = solve(cnf, _implication_graph)
-    //println(result.map(_.toMap))
     result.map(_.toMap)
-  }
+  }*/
 
   /**
     * Makes a decision but first checks and applies unit propagation.

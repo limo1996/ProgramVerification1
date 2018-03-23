@@ -19,9 +19,18 @@ object CNFConversionSpecification extends Properties("CNFConversion") {
       check2(f, new Formula(f).toTerm, PropositionalLogic.isCNF)
     }
 
+  property("toCNF:exhaustive - tseitin") =
+    forAll(ExhaustivePropositionalFormulaGenerator.formula) { (f: Term) =>
+      check2(f, new Formula(f, true).toTerm, PropositionalLogic.isCNF)
+    }
+
   property("toCNF:random") =
     forAll(RandomPropositionalFormulaGenerator.formula) { (f: Term) =>
       check2(f, new Formula(f).toTerm, PropositionalLogic.isCNF)
     }
 
+  property("toCNF:random - tseitin") =
+    forAll(RandomPropositionalFormulaGenerator.formula) { (f: Term) =>
+      check2(f, new Formula(f, true).toTerm, PropositionalLogic.isCNF)
+    }
 }

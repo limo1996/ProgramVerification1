@@ -77,7 +77,7 @@ object MySATSolver {
           // convert from .cnf (DIMACS) format
           convertDIMACSFileToSMTLIBv2(args(1))
         case SUDOKU => {
-          val solver = new solvers.SudokuSolver(true, false)
+          val solver = new solvers.SudokuSolver(settings.implementation)
           solver.solve(settings.file)
           return
         }

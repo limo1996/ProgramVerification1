@@ -7,7 +7,7 @@ import scala.collection.mutable.StringBuilder
 
 import core.MySATSolver
 import core.SATSolver
-import core.CNFConversion
+import core.CNFConverter
 
 
 import java.nio.file.{Paths, Files}
@@ -26,34 +26,39 @@ import smtlib.theories.Core._
 
 /**
   * Based on https://pdfs.semanticscholar.org/3d74/f5201b30772620015b8e13f4da68ea559dfe.pdf
-  * @param CDCL Indicates whether use CDCL solver
-  * @param pureLiteralRule Indicates whether to use pure literal rule
+  * @param solver Indicates which solver to use.
   */
-class SudokuSolver(val CDCL : Boolean, val pureLiteralRule : Boolean) {
+class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
   val _builder = new mutable.StringBuilder()
 
   /* Solves sudoku problem specified in file provided as parameter. */
   def solve(path: String) : Unit = {
     val sudoku = parseFile(path)
-    println("Sudoku: file parsed")
+    val filename = path.slice(path.lastIndexOf('/') + 1, path.lastIndexOf('.'))
+    println(s"$filename: file parsed")
     createSudokuFormulaString(sudoku)
     Files.write(Paths.get(path+".result"), _builder.toString.getBytes(StandardCharsets.UTF_8))
-    println("Sudoku: formula string created")
-    val solver = getSolver(CDCL, pureLiteralRule)
-    println("Sudoku: Solver create. Formula is going to be solved")
+    println(s"$filename: formula string created")
+    val solver = getSolver(solverConfiguration)
+    println(s"$filename: Solver create. Formula is going to be solved")
     val formula = smt2ToFormula(_builder.toString())
-    //val cnf = CNFConversion.toCNF(formula)
     val result = solver.checkSAT(formula)
-    println("Sudoku: formula solved")
+    println(s"$filename: formula solved")
     writeResultToFile(result, path)
   }
 
-  /* Gets solver from specification provided as parameter. */
-  private def getSolver(CDCL : Boolean, pureLiteralRule : Boolean) : SATSolver = {
-    if(CDCL)
-      new CDCL(pureLiteralRule)
-    else
-      new DPLL(pureLiteralRule)
+  /**
+    * Gets solver from specification provided as parameter.
+    * We cannot use tseitin conversion because solver is not able to solve formula with it.
+    */
+  private def getSolver(solver : SATSolverConfiguration) : SATSolver = {
+    solver match {
+      case solvers.DPLLBaseline => new DPLL(true, false)
+      case solvers.DPLLWithoutPure => new DPLL(false, false)
+      case solvers.DPLLTseitin => new DPLL(false, true)
+      case solvers.CDCLBaseline => new CDCL(false, false)
+      case solvers.CDCLTseitin => new CDCL(false, true)
+    }
   }
 
   /* Parses file into 9x9 matrix */
@@ -70,7 +75,6 @@ class SudokuSolver(val CDCL : Boolean, val pureLiteralRule : Boolean) {
   private def smt2ToFormula(inputString: String): Term = {
     val cmds: List[Command] = MySATSolver.parseInputString(inputString)
     val (_, formula) = util.InputProcessing.processCommands(cmds)
-    println(formula)
     formula
   }
 
@@ -323,11 +327,9 @@ class SudokuSolver(val CDCL : Boolean, val pureLiteralRule : Boolean) {
     val sudoku = Array.fill(9){Array.fill(9){0}}
     for ((k: String, v: Boolean) <- res){
       if(v){
-        //println(k)
         val x = k.charAt(1).toInt - 48
         val y = k.charAt(2).toInt - 48
         val value = k.charAt(3).toInt - 48
-        //println("x: " + x + " y: " + y)
         sudoku(x - 1)(y - 1) = value
       }
     }

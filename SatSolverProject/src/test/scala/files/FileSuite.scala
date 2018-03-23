@@ -9,7 +9,7 @@ import org.scalatest.FunSuite
 import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.time.{Seconds, Span}
 import smtlib.parser.Commands.Command
-import solvers.{SATSolverConfiguration, SolverFactory, Z3Solver}
+import solvers.{SATSolverConfiguration, SolverFactory, SudokuSolver, Z3Solver}
 import util.PropositionalLogic
 
 import scala.collection.mutable
@@ -38,11 +38,13 @@ class FileSuite extends FunSuite with TimeLimitedTests {
     }
     collectFiles(new File(getClass.getResource("/examples").toURI.getPath))
     collectFiles(new File(getClass.getResource("/tests").toURI.getPath))
+    collectFiles(new File(getClass.getResource("/sudoku").toURI.getPath))
     paths
   }
 
   val allCnfFiles = collectFiles(".cnf")
   val allSmtFiles = collectFiles(".smt2")
+  val sudokuFiles = collectFiles(".txt")
 
   def check(z3Result: Boolean, inputString: String, solverType: SATSolverConfiguration): Unit = {
     val script: List[Command] = MySATSolver.parseInputString(inputString)
@@ -57,6 +59,13 @@ class FileSuite extends FunSuite with TimeLimitedTests {
         assert(PropositionalLogic.evaluate(formula, model))
     }
   }
+
+  sudokuFiles foreach((file) => {
+    test(s"CDCLBaseline $file --sudoku") {
+      val solver = new SudokuSolver(SolverFactory.getConfigurationFromString("CDCLBaseline").get)
+      solver.solve(file.getAbsolutePath)
+    }
+  })
 
   allCnfFiles foreach ((file) => {
     SolverFactory.getAllSupportedSolvers.foreach((solverType) => {
