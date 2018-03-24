@@ -11,9 +11,9 @@ This step causes huge overhead that causes that formula is not solvable in reaso
 As consequence we wanted to see performance of both techniques in terms of formula conversion and consequent performance of solvers over converted formula.
 Following table shows average performance of these techniques in formula conversion.
 
-| Conversion        | Dis. distribution  | Tseitin  |
-| ----------------- |:------------------:| --------:|
-| 100 Random tests  | 12.5532            | 9.2112   |
-| 100 Exhaustive    | 3.2045             | 2.4605   |
+| Conversion        | Dis. distribution   | Tseitin   |
+| ----------------- |:-------------------:| ---------:|
+| 100 Random tests  | 12.5532s            | 9.2112s   |
+| 100 Exhaustive    | 3.2045s             | 2.4605s   |
 
 We can see that tseitin conversion is quite faster. 

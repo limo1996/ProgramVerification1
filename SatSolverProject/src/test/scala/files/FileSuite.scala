@@ -20,7 +20,7 @@ import smtlib.parser.Commands.Command
   * A base class for collecting all example tests.
   */
 class FileSuite extends FunSuite with TimeLimitedTests {
-  override def timeLimit = Span(40, Seconds)
+  override def timeLimit = Span(30, Seconds)
 
   private def collectFiles(extension: String) = {
     val paths = mutable.Buffer[File]()
@@ -39,7 +39,8 @@ class FileSuite extends FunSuite with TimeLimitedTests {
     }
 
     collectFiles(new File(getClass.getResource("/examples").toURI.getPath))
-    collectFiles(new File(getClass.getResource("/tests").toURI.getPath))
+    collectFiles(new File(getClass.getResource("/tests/random").toURI.getPath))
+    collectFiles(new File(getClass.getResource("/tests/structured").toURI.getPath))
     collectFiles(new File(getClass.getResource("/sudoku").toURI.getPath))
     paths
   }
