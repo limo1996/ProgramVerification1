@@ -21,7 +21,6 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
   protected var _cnf : Formula = null;
   protected var _used_literals : ArrayBuffer[Boolean] = null;
   protected var _branching : ArrayBuffer[Int] = null;
-  protected var _sibling_parents : ArrayBuffer[Set[Int]] = null
   /**
     * All solvers should implement this method to satisfy the common interface.
     */
@@ -41,7 +40,6 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
   protected def solve(cnf: Formula, implication_graph: ImplicationGraph): Option[cnf.Model] = {
     _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
     _branching = ArrayBuffer.fill(cnf.literalCount){0}
-    _sibling_parents = ArrayBuffer.fill(cnf.literalCount){Set[Int]()}
 
     val (isTrivial, model) = checkTrivial(cnf, implication_graph)
     if (isTrivial) return model

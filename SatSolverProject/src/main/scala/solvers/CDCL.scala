@@ -1,11 +1,9 @@
 package solvers
 
-import util.{Event, Formula, ImplicationGraph}
+import util.{Formula, ImplicationGraph}
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
-import smtlib.parser.Terms.Term
 import smtlib.parser.Terms
 
 /**
@@ -17,16 +15,19 @@ import smtlib.parser.Terms
 class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolean, override val useTseitinConversion : Boolean)
   extends DPLL(usePureLiteralRule, useTseitinConversion) {
 
+  protected var _conflict_relevant : Set[Int] = null
+
   /**
     * All solvers should implement this method to satisfy the common interface.
     */
-  /*override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
+  override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
     val cnf = new Formula(formula)
     _cnf = cnf
     _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
+    _conflict_relevant = Set[Int]()
     val result = solve(cnf, _implication_graph)
     result.map(_.toMap)
-  }*/
+  }
 
   /**
     * Makes a decision but first checks and applies unit propagation.
@@ -37,6 +38,7 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
   final override def decision(cnf: Formula): Boolean = {
     if (check_consistency(cnf)) return true                         // if all clauses are disabled => solved
     if (check_inconsistency(cnf)) {                                 // if there is empty clause => conflict
+      println(1)
       if(resolveConflict())                                         // resolve conflict => learn clause, jump back to relevant decision literal
         decision(cnf)                                               // carry on with learned clause
       else
@@ -66,7 +68,6 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
   }
 
   /**
-    *
     * @return
     */
   private def resolveConflict() : Boolean = {
@@ -74,7 +75,6 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
     if (next_decision == -1)                                  // if there are no more decisions to make and model
       return false
 
-    //println("Next decision: " + getName(next_decision))
     select_literal(next_decision)                             // select literal
     _implication_graph.logDecision(next_decision)             // log our decision
     disable(next_decision)                                    // disable all occurrences of literal
@@ -83,18 +83,18 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
 
   private def conflictResolution() : Int = {
     val conflict_lit = _implication_graph.lastEvent().get.getLiteral
-    //println("Conflict detected!")
     var parents = getAllParentDecisionLiterals(conflict_lit, _implication_graph)
     for(c <- getClauseLiterals(_cnf.Literal.neg(conflict_lit), _implication_graph))
       parents ++= getAllParentDecisionLiterals(_cnf.Literal.neg(c), _implication_graph)
 
-    if(clauseLearning)
+    if (clauseLearning)
       _cnf.addNewClause(parents.toSeq)        // clause learning
 
     var relevantDecisions = Set[Int]()
     for (c <- parents)
       relevantDecisions += _cnf.Literal.neg(c)
 
+    _conflict_relevant ++= relevantDecisions
     //println("Relevant decisions: " + relevantDecisions.map(c => getName(c)))
     //println("Curr problem: " + getName(conflict_lit))
 
@@ -102,28 +102,24 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
 
     if(_implication_graph.lastEvent().isEmpty)
       return -1
-    val dec_lit = _implication_graph.lastEvent().get.getLiteral
-    if(_branching(_cnf.Literal.toVariable(dec_lit) - 1) != 2)
-      _sibling_parents(_cnf.Literal.toVariable(dec_lit) - 1) = relevantDecisions
 
     //println("Before problem: " + getName(dec_lit))
 
     /* Idea: recursively iterate to decision which was done not on negated literal. Than return its negation */
     while(_implication_graph.lastEvent().isDefined && _branching(_cnf.Literal.toVariable(_implication_graph.lastEvent().get.getLiteral) - 1) == 2){
       val lit = _implication_graph.lastEvent().get.getLiteral
-      relevantDecisions ++= _sibling_parents(_cnf.Literal.toVariable(lit) - 1)
-      relevantDecisions -= lit
-      relevantDecisions -= _cnf.Literal.neg(lit)
+      //relevantDecisions ++= _sibling_parents(_cnf.Literal.toVariable(lit) - 1)
+      _conflict_relevant -= lit
+      _conflict_relevant -= _cnf.Literal.neg(lit)
       /*println("Top literal: " + getName(lit))
       println("Sibling decisions: " + _sibling_parents(_cnf.Literal.toVariable(lit) - 1).map(c => getName(c)))
       println("In loop: Relevant decisions: " + relevantDecisions.map(c => getName(c)))*/
-      undo_before_event_of_literal1(relevantDecisions)
+      undo_before_event_of_literal1(_conflict_relevant)
     }
     if(_implication_graph.lastEvent().isEmpty)
       return -1
     // pop to prev decision event,  redo cnf and return to_solve
     val ev = _implication_graph.lastEvent().get
-    //println("Problem " + getName(ev.getLiteral))
     val to_solve = _cnf.Literal.neg(ev.getLiteral)
     //deselect_literal(ev.getLiteral)
     enable(ev, _implication_graph)
@@ -134,8 +130,10 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
   private def getClauseLiterals(lit: Int, implication_graph: ImplicationGraph) : Seq[Int] = {
     var toReturn : Seq[Int] = ArrayBuffer[Int]()
     _cnf.foreachEnabled(c => {
-      if(c.enabledLiteralsCount == 0 && c.literals.contains(_cnf.Literal.disable(lit)))
-        toReturn = c.literals
+      if(c.enabledLiteralsCount == 0 && c.literals.contains(_cnf.Literal.disable(lit))) {
+        if (toReturn.lengthCompare(c.literals.size) < 0)
+          toReturn = c.literals
+      }
     })
     toReturn
   }
