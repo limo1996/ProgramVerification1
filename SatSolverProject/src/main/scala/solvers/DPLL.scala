@@ -203,11 +203,11 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
   }
 
   protected def request_literal(formula: Formula): Int = {
-    var idx = Random.nextInt(_used_literals.size)
-    while (_used_literals(idx))
-      idx = Random.nextInt(_used_literals.size)
-    //_used_literals(idx) = true
-    val lit = formula.Variable.toLiteral(idx+1)
+    val size = _used_literals.size
+    val start = Random.nextInt(size)
+    var idx = start
+    while (idx < start+size && _used_literals(idx % size)) idx += 1
+    val lit = formula.Variable.toLiteral((idx % size) + 1)
     select_literal(lit)
     if (Random.nextInt() % 2 == 1) lit
     else formula.Literal.neg(lit)
