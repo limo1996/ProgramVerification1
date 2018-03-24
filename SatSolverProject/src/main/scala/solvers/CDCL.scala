@@ -140,25 +140,16 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
     toReturn
   }
 
-  private def isDecision(event: Event, implication_graph: ImplicationGraph) : Option[Int] = {
-    import implication_graph.{Decision, Consequence}
-    event match {
-      case Decision(i, _) => Some(i)
-      case Consequence(i, _) => None
-    }
-  }
-
   private def getAllParentDecisionLiterals(lit: Int, implication_graph: ImplicationGraph) : Set[Int] = {
     import implication_graph.{Decision, Consequence}
     val event = implication_graph.getEvent(lit)
     event match {
       case Decision(i, pred) => Set(_cnf.Literal.neg(i))
-      case Consequence(i, pred) => {
+      case Consequence(i, pred) =>
         var parents = Set[Int]()
         for(p <- pred)
           parents ++= getAllParentDecisionLiterals(p, implication_graph)
         parents
-      }
     }
   }
 }
