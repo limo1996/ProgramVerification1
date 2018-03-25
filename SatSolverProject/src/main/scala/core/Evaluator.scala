@@ -64,16 +64,19 @@ object Evaluator {
     var results = Seq[Double]()                                 // stores the experiments' timings
 
     // Run experiment @runs times.
-    for (_ <- 1 to runs) {
-      runExperiment(solver, formula) match {
-        case -1 => return "timeout"
-        case result @ _ => results = result +: results
+    for (ith_run <- 1 to runs) {
+      val result = runExperiment(solver, formula)
+
+      // Consider only experiments after the first @dropRuns (warm up time)
+      if (ith_run > dropRuns) {
+        result match {
+          case -1 => return "timeout"
+          case _ => results = result +: results
+        }
       }
     }
 
-    results.drop(dropRuns)                                      // drop first @dropRuns
-    val keepRuns = runs - dropRuns
-    (results.sum / keepRuns).toString
+    (results.sum / results.size).toString
   }
 
   /**
