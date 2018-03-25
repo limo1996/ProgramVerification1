@@ -56,7 +56,12 @@ object Evaluator {
           val literalCount = solver.convertToCNF(formula).literalCount
 
           // Log the number of literals in the formula and the average time it took to solve
-          solverToWriter(prefix+solverType.toString).write(s"$literalCount $result\n")
+          if (prefix == "Random_") {
+            solverToWriter(prefix+solverType.toString).write(s"$literalCount $result\n")
+          } else {
+            val testName = file.getName
+            solverToWriter(prefix+solverType.toString).write(s"$testName $result\n")
+          }
         })
       })
     }
