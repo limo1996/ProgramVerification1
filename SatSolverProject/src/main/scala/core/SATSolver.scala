@@ -2,6 +2,7 @@
 package core
 
 import smtlib.parser.Terms.Term
+import util.Formula
 
 trait SATSolver {
 
@@ -28,4 +29,7 @@ trait SATSolver {
         }
     }
 
+  def convertToCNF(formula: Term): Formula = {
+    new Formula(formula)
+  }
 }

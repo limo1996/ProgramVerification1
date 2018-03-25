@@ -21,11 +21,15 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
   protected var _cnf : Formula = null;
   protected var _used_literals : ArrayBuffer[Boolean] = null;
   protected var _branching : ArrayBuffer[Int] = null;
+  override def convertToCNF(formula: Terms.Term): Formula = {
+    new Formula(formula, useTseitinConversion)
+  }
+
   /**
     * All solvers should implement this method to satisfy the common interface.
     */
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
-    val cnf = new Formula(formula, useTseitinConversion)
+    val cnf = convertToCNF(formula)
     _cnf = cnf
     _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
     val result = solve(cnf, _implication_graph)

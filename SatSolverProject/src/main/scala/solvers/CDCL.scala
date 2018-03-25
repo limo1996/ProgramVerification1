@@ -21,7 +21,7 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
     * All solvers should implement this method to satisfy the common interface.
     */
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
-    val cnf = new Formula(formula)
+    val cnf = convertToCNF(formula)
     _cnf = cnf
     _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
     _conflict_relevant = Set[Int]()
