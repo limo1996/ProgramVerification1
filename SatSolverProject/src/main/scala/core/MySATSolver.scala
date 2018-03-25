@@ -27,27 +27,38 @@ private class Settings(args: Array[String]) {
 
   import MySATSolver.abortExecution
 
-  if (args.length != 2 && args.length != 3) {
+  var evaluation = false
+  var implementation: solvers.SATSolverConfiguration = _
+  var inputFormat: InputFormat = _
+  var file: String = _
+
+  if (args.length != 1 && args.length != 2 && args.length != 3) {
     abortExecution("Wrong number of command-line arguments specified (expected 2 or 3)")
   }
 
-  val implementation: solvers.SATSolverConfiguration =
-    SolverFactory.getConfigurationFromString(args(0)).getOrElse(
-      abortExecution(s"Unknown algorithm: ${args(0)}")
-    )
-
-  val file: String = args(1)
-
-  val inputFormat: InputFormat = {
-    if (args.length == 3) {
-      args(2) match {
-        case "--cnf" | "/cnf" | "--dimacs" | "/dimacs" => DIMACS
-        case "--smtlib" | "/smtlib" => SMTLib
-        case "--sudoku" => SUDOKU
-        case s => abortExecution(s"Unknown input format: $s")
-      }
+  if (args.length == 1) {
+    if (args(0) == "--eval") {
+      evaluation = true
     } else {
-      SMTLib
+      abortExecution(s"Unknown algorithm: ${args(0)}")
+    }
+  } else {
+    implementation = SolverFactory.getConfigurationFromString(args(0)).getOrElse(
+      abortExecution(s"Unknown algorithm: ${args(0)}"))
+
+    file = args(1)
+
+    inputFormat = {
+      if (args.length == 3) {
+        args(2) match {
+          case "--cnf" | "/cnf" | "--dimacs" | "/dimacs" => DIMACS
+          case "--smtlib" | "/smtlib" => SMTLib
+          case "--sudoku" => SUDOKU
+          case s => abortExecution(s"Unknown input format: $s")
+        }
+      } else {
+        SMTLib
+      }
     }
   }
 
@@ -64,6 +75,12 @@ object MySATSolver {
 
     val settings = new Settings(args)
 
+    // If the evaluation option was specified, run the evaluator and return
+    if (settings.evaluation) {
+      Evaluator.run()
+      return
+    }
+
     // "val" indicates immutable storage; we will never reassign inputString
     val inputString = // we can use a block of statements as an expression; its value will be
                       // the value of the last statement in the block
@@ -76,11 +93,10 @@ object MySATSolver {
         case DIMACS =>
           // convert from .cnf (DIMACS) format
           convertDIMACSFileToSMTLIBv2(args(1))
-        case SUDOKU => {
+        case SUDOKU =>
           val solver = new solvers.SudokuSolver(settings.implementation)
           solver.solve(settings.file)
           return
-        }
       }
     }
 
@@ -119,8 +135,6 @@ object MySATSolver {
       case None =>
     }
     println(solver.outputResult(result))
-
-    Evaluator.run()
   }
 
   // A Scala method that, unlike method main above, has a return value
