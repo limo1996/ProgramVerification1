@@ -17,10 +17,11 @@ import scala.collection.mutable.ArrayBuffer
   */
 class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) extends SATSolver {
 
-  protected var _implication_graph : ImplicationGraph = null;
-  protected var _cnf : Formula = null;
-  protected var _used_literals : ArrayBuffer[Boolean] = null;
-  protected var _branching : ArrayBuffer[Int] = null;
+  protected var _implication_graph : ImplicationGraph = _
+  protected var _cnf : Formula = _
+  protected var _used_literals : ArrayBuffer[Boolean] = _
+  protected var _branching : ArrayBuffer[Int] = _
+
   override def convertToCNF(formula: Terms.Term): Formula = {
     new Formula(formula, useTseitinConversion)
   }
@@ -29,10 +30,9 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     * All solvers should implement this method to satisfy the common interface.
     */
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
-    val cnf = convertToCNF(formula)
-    _cnf = cnf
-    _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
-    val result = solve(cnf, _implication_graph)
+    _cnf = convertToCNF(formula)
+    _implication_graph = new ImplicationGraph(_cnf.literalCount, _cnf, verbose = false)
+    val result = solve(_cnf, _implication_graph)
     result.map(_.toMap)
   }
 
@@ -90,7 +90,7 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     if (check_consistency(cnf)) return true
     if (check_inconsistency(cnf)) return false
 
-    val (v1, v2) = unit_propagation0(cnf)
+    val (v1, v2) = unit_propagation(cnf)
     if (v1) return v2
 
     if (usePureLiteralRule) {
@@ -158,7 +158,7 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
         var unit: Int = -1                              // will get assigned an actual literal value
         ls.zipWithIndex.foreach({ case(l, idx) =>
           if (cnf.Literal.isEnabled(l)) unit = l
-          else ls(idx) = _cnf.Literal.neg(ls(idx))
+          else ls(idx) = cnf.Literal.neg(ls(idx))
         })
         //println("Unit propagation on " + getName(unit))
         return Some((unit, ls - unit))
@@ -167,21 +167,12 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     None
   }
 
-  protected def unit_propagation0(cnf:Formula): (Boolean, Boolean) = {
+  protected def unit_propagation(cnf:Formula): (Boolean, Boolean) = {
     val unit = find_unit_clause(cnf)
     if (unit.isDefined) {
       val (lit, preds) = unit.get
       unit_propagation_step(lit, preds)
     } else (false, false)
-  }
-
-  protected def getName(literal: Int) : String = {
-    var res = ""
-    if(_cnf.Literal.isNegated(literal))
-      res += "!"
-
-    res += _cnf.variableNames(_cnf.Literal.toVariable(literal))
-    res
   }
 
     @tailrec
@@ -229,16 +220,12 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     * @return first unassigned literal
     */
   protected def request_first_unassigned(formula: Formula): Int = {
-    for(c <- formula.clauses){
-      if(c.enabled) {
-        for (l <- c.literals){
-          if (_cnf.Literal.isEnabled(l)/*!_used_literals(formula.Literal.toVariable(l) - 1)*/) {
-            select_literal(l)
-            return l
-          }
-        }
-      }
-    }
+    formula.foreachEnabled(c => {
+      c.foreachEnabled(l => {
+        select_literal(l)
+        return l
+      })
+    })
     -1
   }
 
