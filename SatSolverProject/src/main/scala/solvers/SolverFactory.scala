@@ -59,12 +59,12 @@ object SolverFactory {
   def constructSolver(solverConfiguration: SATSolverConfiguration): SATSolver = solverConfiguration match {
     case solvers.Z3 => Z3Solver
     case solvers.FixedProblemSolver => FixedProblemSATSolver
-    case solvers.DPLLBaseline => new DPLL(usePureLiteralRule = true, useTseitinConversion = false)
-    case solvers.DPLLWithoutPure => new DPLL(usePureLiteralRule = false, useTseitinConversion = false)
-    case solvers.DPLLTseitin => new DPLL(usePureLiteralRule = false, useTseitinConversion = true)
-    case solvers.CDCLBaseline => new CDCL(clauseLearning = true, usePureLiteralRule = false, useTseitinConversion = false)
-    case solvers.CDCLTseitin => new CDCL(clauseLearning = true, usePureLiteralRule = false, useTseitinConversion = true)
-    case solvers.CDCLWithoutLearning => new CDCL(clauseLearning = false, usePureLiteralRule = false, useTseitinConversion = false)
+    case solvers.DPLLBaseline => new DPLL(usePureLiteralRule = true, useTseitinConversion = false, strategy = "smallest")
+    case solvers.DPLLWithoutPure => new DPLL(usePureLiteralRule = false, useTseitinConversion = false, strategy = "smallest")
+    case solvers.DPLLTseitin => new DPLL(usePureLiteralRule = false, useTseitinConversion = true, strategy = "smallest")
+    case solvers.CDCLBaseline => new CDCL(clauseLearning = true, usePureLiteralRule = false, useTseitinConversion = false, strategy = "smallest")
+    case solvers.CDCLTseitin => new CDCL(clauseLearning = true, usePureLiteralRule = false, useTseitinConversion = true, strategy = "smallest")
+    case solvers.CDCLWithoutLearning => new CDCL(clauseLearning = false, usePureLiteralRule = false, useTseitinConversion = false, strategy = "smallest")
   }
 
 }

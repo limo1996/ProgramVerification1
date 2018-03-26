@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
   *                           the pure literal rule.
   * @param useTseitinConversion Indicates whether to use tseitin conversion or not.
   */
-class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) extends SATSolver {
+class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, val strategy: String) extends SATSolver {
 
   protected var _implication_graph : ImplicationGraph = null;
   protected var _cnf : Formula = null;
@@ -93,7 +93,7 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     val (v1, v2) = unit_propagation0(cnf)
     if (v1) return v2
 
-    val lit = request_literal(cnf)
+    val lit = request_literal(cnf, strategy)
     val neg_lit = cnf.Literal.neg(lit)
 
     _implication_graph.logDecision(lit)
@@ -206,7 +206,21 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     false
   }
 
-  protected def request_literal(formula: Formula): Int = {
+  /* Returns next decision literal according to provided strategy */
+  protected def request_literal(formula: Formula, strategy: String): Int = {
+    strategy match {
+      case "random" => request_random_literal(formula)
+      case "first" => request_first_unassigned(formula)
+      case "smallest" => request_from_smallest_clause(formula)
+    }
+  }
+
+  /**
+    * Finds and returns random unassigned literal.
+    * @param formula from which will be literal chosen
+    * @return Randomly chosen literal.
+    */
+  protected def request_random_literal(formula: Formula): Int = {
     val size = _used_literals.size
     val start = Random.nextInt(size)
     var idx = start
@@ -218,7 +232,7 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
   }
 
   /**
-    * Finds and returns first unassigned literal. In case no suchh literal exists returns -1.
+    * Finds and returns first unassigned literal. In case no such literal exists returns -1.
     * @param formula from which will be literal chosen
     * @return first unassigned literal
     */
@@ -234,6 +248,33 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
       }
     }
     -1
+  }
+
+  /**
+    * Finds and returns first unassigned literal in smallest clause. In case no such literal exists returns -1.
+    * @param formula from which will be literal chosen
+    * @return first unassigned literal from smallest clause
+    */
+  protected def request_from_smallest_clause(formula: Formula): Int = {
+    var min_size: Int = Int.MaxValue
+    var chosen: Int = -1
+    for (c <- formula.clauses) {
+      if (c.enabled) {
+        val e_count = c.enabledLiteralsCount
+        if (e_count < min_size) {
+          var selected = false
+          for (l <- c.literals) {
+            if (_cnf.Literal.isEnabled(l) && !selected) {
+              selected = true
+              min_size = e_count
+              chosen = l
+            }
+          }
+        }
+      }
+    }
+    select_literal(chosen)
+    chosen
   }
 
   protected def select_literal(literal: Int): Unit = {

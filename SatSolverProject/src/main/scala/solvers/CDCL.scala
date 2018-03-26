@@ -12,8 +12,8 @@ import smtlib.parser.Terms
   * @param usePureLiteralRule True if the implementation should use
   *                           the pure literal rule.
   */
-class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolean, override val useTseitinConversion : Boolean)
-  extends DPLL(usePureLiteralRule, useTseitinConversion) {
+class CDCL(val clauseLearning : Boolean, override val usePureLiteralRule: Boolean, override val useTseitinConversion : Boolean,
+           override val strategy: String) extends DPLL(usePureLiteralRule, useTseitinConversion, strategy) {
 
   protected var _conflict_relevant : Set[Int] = null
 
@@ -54,8 +54,7 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
             return false
         }
       } else {
-        val lit = request_first_unassigned(cnf)
-        //val lit = request_literal(cnf)                            // -> working as well
+        val lit = request_literal(cnf, strategy)                    // -> working as well
 
         assert(lit != -1)
         //println("CDCL decision on: " + getName(lit))

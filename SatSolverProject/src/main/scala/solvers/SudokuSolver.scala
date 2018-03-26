@@ -53,12 +53,12 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
     */
   private def getSolver(solver : SATSolverConfiguration) : SATSolver = {
     solver match {
-      case solvers.DPLLBaseline => new DPLL(true, false)
-      case solvers.DPLLWithoutPure => new DPLL(false, false)
+      case solvers.DPLLBaseline => new DPLL(true, false, "smallest")
+      case solvers.DPLLWithoutPure => new DPLL(false, false, "smallest")
       //case solvers.IterativeDPLLBaseline => new IterativeDPLLBaseline()
-      case solvers.DPLLTseitin => new DPLL(false, true)
-      case solvers.CDCLBaseline => new CDCL(true, false, false)
-      case solvers.CDCLTseitin => new CDCL(true, false, true)
+      case solvers.DPLLTseitin => new DPLL(false, true, "smallest")
+      case solvers.CDCLBaseline => new CDCL(true, false, false, "smallest")
+      case solvers.CDCLTseitin => new CDCL(true, false, true, "smallest")
     }
   }
 
