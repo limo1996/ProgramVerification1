@@ -16,17 +16,16 @@ import smtlib.parser.Terms.Term
 
 /**
   * Based on https://pdfs.semanticscholar.org/3d74/f5201b30772620015b8e13f4da68ea559dfe.pdf
-  * @param solverConfiguration Indicates which solver to use.
   */
-class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
+class SudokuSolver {
   val _builder = new mutable.StringBuilder()  // used to construct the smt2 representation of the Sudoku puzzle
 
-  /*
-   * Solves the Sudoku puzzle specified in the file on the provided path.
-   */
-  def solve(path: String) : Unit = {
-    val formula = getFormula(path)
-    val solver = getSolver
+  /**
+    * Solves the Sudoku puzzle specified in the file on the provided path.
+    */
+  def solve(solverConfiguration : SATSolverConfiguration, path: String) : Unit = {
+    val formula = produceFormula(path)
+    val solver = getSolver(solverConfiguration)
     val result = solver.checkSAT(formula)
     writeResultToFile(result, path)
   }
@@ -34,7 +33,7 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
   /**
     * Returns an smt representation of the Sudoku puzzle specified in the file on the provided path.
     */
-  private def getFormula(path: String): Term = {
+  def produceFormula(path: String): Term = {
     val sudoku = parseFile(path)
     createSudokuFormulaString(sudoku)
     smt2ToFormula(_builder.toString())
@@ -43,7 +42,8 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
   /**
     * Returns a SATSolver instance based on the provided configuration.
     */
-  private def getSolver : SATSolver = SolverFactory.constructSolver(solverConfiguration)
+  private def getSolver(solverConfiguration : SATSolverConfiguration): SATSolver =
+    SolverFactory.constructSolver(solverConfiguration)
 
   /**
     * Parses Sudoku input file and stores result into 9x9 matrix.
