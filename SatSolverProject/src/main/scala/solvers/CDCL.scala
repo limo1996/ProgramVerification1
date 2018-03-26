@@ -54,6 +54,12 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
             return false
         }
       } else {
+        if (usePureLiteralRule) {
+          applyPureLiteral()
+        }
+
+        if (check_consistency(cnf)) return true
+
         val lit = request_first_unassigned(cnf)
         //val lit = request_literal(cnf)                            // -> working as well
 

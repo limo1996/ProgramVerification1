@@ -93,6 +93,12 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     val (v1, v2) = unit_propagation0(cnf)
     if (v1) return v2
 
+    if (usePureLiteralRule) {
+      applyPureLiteral()
+    }
+
+    if (check_consistency(cnf)) return true
+
     val lit = request_literal(cnf)
     val neg_lit = cnf.Literal.neg(lit)
 
@@ -271,35 +277,37 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     })
   }
 
-  /*
-   * Applies pure literal rule to all pure variables found and returns simplified formula.
-   */
-  protected def applyPureLiteralRule(): Unit = {
-    val usage = ArrayBuffer.fill(_cnf.literalCount) {(false, false)};       // Create array where index + 1 indicated variable (1 based) and value
-    _cnf.foreachEnabled(c => {                                              // is tuple where first value indicated positive appearance and second negative.
-      c.foreachEnabled(l => {                                               // Loop through all clauses and variables in them
-        val variable: Int = _cnf.Literal.toVariable(l) - 1;                 // get variable index
-        val use = usage(variable)                                           // get initial value
-        usage(variable) = (use._1 || !_cnf.Literal.isNegated(l), use._2 || _cnf.Literal.isNegated(l))
-      })                                                                    // set appropriate flag to appropriate value
-    })
-
-    var i = 1                                                               // create counter
-    for (l <- usage) {                                                      // loop through the flag array
-      if ((l._1 && !l._2) || (!l._1 && l._2)) {                             // if variable occurs only positively or negatively
-        var lit             = i                                             // reconstruct literal from index
-        if (!l._1)
-          lit = _cnf.Literal.neg(i)                                         // if negated negate
-        var j = 0
-        _cnf.clauses.foreach(c => {                                         // loop through all clauses
-          if (c.enabled && c.literals.contains(lit)) {                      // if clause contains pure literal
-            c.enabled = false;                                              // disable the clause
-            _implication_graph.lastEvent().get.registerDisabledClause(j)
-          }
-          j += 1
+  /**
+    * Applies pure literal rule to all pure variables found
+    */
+  protected def applyPureLiteral(): Unit = {
+    def applyPureLiteralStep(): Int = {
+      val usage = ArrayBuffer.fill(_cnf.literalCount) {(false, false)};     // array of tuples indicating (positive, negative)
+                                                                            // negative appearance of variable index+1
+      _cnf.foreachEnabled(c => {
+        c.foreachEnabled(l => {
+          val variable: Int = _cnf.Literal.toVariable(l) - 1;               // variable index
+          val use = usage(variable)                                         // initial value
+          usage(variable) = (use._1 || !_cnf.Literal.isNegated(l), use._2 || _cnf.Literal.isNegated(l))  // update value
         })
-      }
-      i += 1                                                                // increment the counter
+      })
+
+      var applications = 0
+      usage.zipWithIndex.foreach({ case(u, idx) =>
+        if ((u._1 && !u._2) || (!u._1 && u._2)) {                           // if variable occurs only positively or negatively
+          applications += 1                                                 // log application of rule
+          var lit = _cnf.Variable.toLiteral(idx+1)                          // reconstruct literal from index
+          if (!u._1) lit = _cnf.Literal.neg(lit)                            // if negated negate
+
+          select_literal(lit)
+          _implication_graph.logConsequence(lit, ArrayBuffer())
+          disable(lit)
+        }
+      })
+      applications
     }
+
+    while (applyPureLiteralStep() != 0) {}
   }
+
 }
