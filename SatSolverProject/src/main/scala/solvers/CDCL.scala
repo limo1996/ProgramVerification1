@@ -6,6 +6,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import smtlib.parser.Terms
 
+import scala.collection.mutable
+
 /**
   * A stub of a configurable implementation of the CDCL.
   *
@@ -89,9 +91,13 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
 
   private def conflictResolution() : Int = {
     val conflict_lit = _implication_graph.lastEvent().get.getLiteral
-    var parents = getAllParentDecisionLiterals(conflict_lit, _implication_graph)
-    for(c <- getClauseLiterals(_cnf.Literal.neg(conflict_lit), _implication_graph))
-      parents ++= getAllParentDecisionLiterals(_cnf.Literal.neg(c), _implication_graph)
+    var parents = mutable.Set[Int]()
+    allParentDecisionLiterals(ArrayBuffer(conflict_lit), parents, _implication_graph)
+    for(c <- getClauseLiterals(_cnf.Literal.neg(conflict_lit), _implication_graph)) {
+      var temp = mutable.Set[Int]()
+      allParentDecisionLiterals(ArrayBuffer(_cnf.Literal.neg(c)), temp, _implication_graph)
+      parents ++= temp
+    }
 
     if (clauseLearning)
       _cnf.addNewClause(parents.toSeq)        // clause learning
@@ -144,16 +150,19 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
     toReturn
   }
 
-  private def getAllParentDecisionLiterals(lit: Int, implication_graph: ImplicationGraph) : Set[Int] = {
+  @tailrec
+  private def allParentDecisionLiterals(lits: ArrayBuffer[Int], parents: mutable.Set[Int], implication_graph: ImplicationGraph) : Unit = {
     import implication_graph.{Decision, Consequence}
-    val event = implication_graph.getEvent(lit)
+
+    if (lits.isEmpty)
+      return
+
+    val event = implication_graph.getEvent(lits.head)
     event match {
-      case Decision(i, pred) => Set(_cnf.Literal.neg(i))
-      case Consequence(i, pred) =>
-        var parents = Set[Int]()
-        for(p <- pred)
-          parents ++= getAllParentDecisionLiterals(p, implication_graph)
-        parents
+      case Decision(i, _) => parents += _cnf.Literal.neg(i)
+      case Consequence(_, pred) => lits ++= pred
     }
+    lits -= lits.head
+    allParentDecisionLiterals(lits, parents, implication_graph)
   }
 }
