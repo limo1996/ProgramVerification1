@@ -17,7 +17,7 @@ class Evaluator {
   protected val dropRuns = 5                      // # of experiments to be ignored
   protected val timeout = Duration(10, SECONDS)   // max duration in which an experiment should terminate
 
-  private val outputDirPath = "results/"
+  private val outputDirPath = "../results/"
   private val outputFileExtension = ".time"
 
   /**
