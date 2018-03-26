@@ -28,6 +28,7 @@ private class Settings(args: Array[String]) {
   import MySATSolver.abortExecution
 
   var evaluation = false
+  var sudoku_evaluation = false
   var implementation: solvers.SATSolverConfiguration = _
   var inputFormat: InputFormat = _
   var file: String = _
@@ -39,7 +40,9 @@ private class Settings(args: Array[String]) {
   if (args.length == 1) {
     if (args(0) == "--eval") {
       evaluation = true
-    } else {
+    } else if (args(0) == "--eval-sudoku")
+      sudoku_evaluation = true
+    else {
       abortExecution(s"Unknown algorithm: ${args(0)}")
     }
   } else {
@@ -78,6 +81,12 @@ object MySATSolver {
     // If the evaluation option was specified, run the evaluator and return
     if (settings.evaluation) {
       new Evaluator().run()
+      return
+    }
+
+    // If the Sudoku evaluation option was specified, run the evaluator and return
+    if (settings.sudoku_evaluation) {
+      new SudokuEvaluator().run()
       return
     }
 
