@@ -1,4 +1,8 @@
 
+## CNF Conversion
+
+CNF conversion is implemented in two files: CNF.scala (tseitin part) and CNFConverter.scala (all other parts as static methods). 
+
 ### Tseitin CNF conversion vs. Disjunction distribution
 
 Firstly we implemented tseitin CNF conversion and used it for converting formulas into CNF format. 
@@ -17,3 +21,8 @@ Following table shows average performance of these techniques in formula convers
 | 100 Exhaustive    | 3.2045s             | 2.4605s   |
 
 We can see that tseitin conversion is quite faster. 
+
+
+## Sudoku
+
+We also implemented bonus task - sudoku by encoding mechanism described in [paper](https://pdfs.semanticscholar.org/535d/06391275618a7b913d1c98a1353286db8d74.pdf) written by Inês Lynce and Jöel Ouaknine. They presented two approaches but we picked minimal encoding that looked more readable to us. All tests even the hardest ones are able to finish within 30 seconds with CDCLBaseline solver. We did not try other solvers since CDCL is clearly faster than DPLL on structured tests.
