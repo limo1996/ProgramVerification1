@@ -77,7 +77,7 @@ object MySATSolver {
 
     // If the evaluation option was specified, run the evaluator and return
     if (settings.evaluation) {
-      Evaluator.run()
+      new Evaluator().run()
       return
     }
 
