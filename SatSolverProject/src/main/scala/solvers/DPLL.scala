@@ -11,8 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * A stub of a configurable implementation of the DPLL.
   *
-  * @param usePureLiteralRule True if the implementation should use
-  *                           the pure literal rule.
+  * @param usePureLiteralRule True if the implementation should use the pure literal rule.
   * @param useTseitinConversion Indicates whether to use tseitin conversion or not.
   */
 class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) extends SATSolver {
@@ -36,11 +35,6 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     result.map(_.toMap)
   }
 
-  /**
-    * The method that does the actual work.
-    *
-    * TODO: Implement.
-    */
   protected def solve(cnf: Formula, implication_graph: ImplicationGraph): Option[cnf.Model] = {
     _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
     _branching = ArrayBuffer.fill(cnf.literalCount){0}
@@ -130,7 +124,6 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
   protected def undo_before_event_of_literal1(lits: Set[Int]): Event = {
     var evArr = ArrayBuffer[Event]()
     for(l <- lits) {
-      //println(_cnf.variableNames(_cnf.Literal.toVariable(l)))
       if(_implication_graph.containsEvent(l))
         evArr += _implication_graph.getEvent(l)
     }
@@ -147,100 +140,29 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
         return ev
     }
     ev
-    //enable(ev, _implication_graph)
-    //_implication_graph.popEvent()
-  }
-
-  protected def find_unit_clause(cnf: Formula) : Option[(Int, ArrayBuffer[Int])] = {
-    cnf.foreachEnabled(c => {
-      if (c.enabledLiteralsCount == 1) {
-        val ls = c.literals.clone()
-        var unit: Int = -1                              // will get assigned an actual literal value
-        ls.zipWithIndex.foreach({ case(l, idx) =>
-          if (cnf.Literal.isEnabled(l)) unit = l
-          else ls(idx) = cnf.Literal.neg(ls(idx))
-        })
-        //println("Unit propagation on " + getName(unit))
-        return Some((unit, ls - unit))
-      }
-    })
-    None
-  }
-
-  protected def unit_propagation(cnf:Formula): (Boolean, Boolean) = {
-    val unit = find_unit_clause(cnf)
-    if (unit.isDefined) {
-      val (lit, preds) = unit.get
-      unit_propagation_step(lit, preds)
-    } else (false, false)
-  }
-
-    @tailrec
-    private def unit_propagation_step(lit: Int, preds: ArrayBuffer[Int]): (Boolean, Boolean) = {
-      select_literal(lit)
-      _implication_graph.logConsequence(lit, preds)
-      disable(lit)
-
-    if (check_consistency(_cnf)) return (true, true)
-    if (check_inconsistency(_cnf)) return (true, false)
-
-    val unit = find_unit_clause(_cnf)
-    if (unit.isDefined) {
-      val (lit, preds) = unit.get
-      unit_propagation_step(lit, preds)
-    } else (false, false)
-  }
-
-  protected def check_consistency(formula: Formula): Boolean = {
-    for (clause <- formula.clauses)
-      if (clause.enabled) return false
-    true
-  }
-
-  protected def check_inconsistency(formula: Formula): Boolean = {
-    for (clause <- formula.clauses)
-      if (clause.enabledLiteralsCount == 0) return true
-    false
-  }
-
-  protected def request_literal(formula: Formula): Int = {
-    val size = _used_literals.size
-    val start = Random.nextInt(size)
-    var idx = start
-    while (idx < start+size && _used_literals(idx % size)) idx += 1
-    val lit = formula.Variable.toLiteral((idx % size) + 1)
-    select_literal(lit)
-    if (Random.nextInt() % 2 == 1) lit
-    else formula.Literal.neg(lit)
   }
 
   /**
-    * Finds and returns first unassigned literal. In case no suchh literal exists returns -1.
-    * @param formula from which will be literal chosen
-    * @return first unassigned literal
+    * Marks that literal is currently assigned a value.
     */
-  protected def request_first_unassigned(formula: Formula): Int = {
-    formula.foreachEnabled(c => {
-      c.foreachEnabled(l => {
-        select_literal(l)
-        return l
-      })
-    })
-    -1
-  }
-
   protected def select_literal(literal: Int): Unit = {
     val idx = _cnf.Literal.toVariable(literal)-1
     _used_literals(idx) = true
     _branching(idx) += 1
   }
 
+  /**
+    * Marks that literal is not currently assigned a value.
+    */
   protected def deselect_literal(literal: Int): Unit = {
     val idx = _cnf.Literal.toVariable(literal)-1
     _used_literals(idx) = false
     _branching(idx) = 0
   }
 
+  /**
+    * Disables clauses the containing literal and also its negation if it appears in clauses.
+    */
   protected def disable(literal: Int): Unit = {
     _cnf.clauses.zipWithIndex.foreach({ case(clause, c_idx) =>
       if (clause.enabled && clause.literals.contains(literal)) {
@@ -257,6 +179,9 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     })
   }
 
+  /**
+    * Enables the clauses and literals of the cnf formula that were disabled by event.
+    */
   protected def enable(event: Event, implication_graph: ImplicationGraph): Unit = {
     event.effects.foreach({
       case implication_graph.DisableClause(i) => _cnf.clauses(i).enabled = true
@@ -265,7 +190,56 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
   }
 
   /**
-    * Applies pure literal rule to all pure variables found
+    * Applies unit propagation.
+    * @return tuple of booleans (v1, v2)
+    *         v1: formula evaluated to sat or unsat, sat if v2 or else unsat
+    *         v2: there were no more propagations to be done
+    */
+  protected def unit_propagation(cnf:Formula): (Boolean, Boolean) = {
+
+    // Searches for a unit clause. If one is found, the unit literal and an array of all the others
+    // negated is return or else None is returned.
+    def find_unit_clause(cnf: Formula) : Option[(Int, ArrayBuffer[Int])] = {
+      cnf.foreachEnabled(c => {
+        if (c.enabledLiteralsCount == 1) {                // if there is only one enabled literal in the clause
+          val ls = c.literals.clone()                     // copy of the literals
+          var unit: Int = -1                              // will get assigned an actual literal value
+          ls.zipWithIndex.foreach({ case(l, idx) =>
+            if (cnf.Literal.isEnabled(l)) unit = l        // the unit literal
+            else ls(idx) = cnf.Literal.neg(ls(idx))       // negate all other literals
+          })
+          return Some((unit, ls - unit))                  // return unit and the array of negated literals without unit
+        }
+      })
+      None
+    }
+
+    @tailrec
+    def unit_propagation_step(lit: Int, preds: ArrayBuffer[Int]): (Boolean, Boolean) = {
+      select_literal(lit)
+      _implication_graph.logConsequence(lit, preds)
+      disable(lit)
+
+      // Check sat and unsat after every propagation
+      if (check_consistency(_cnf)) return (true, true)
+      if (check_inconsistency(_cnf)) return (true, false)
+
+      val unit = find_unit_clause(_cnf)
+      if (unit.isDefined) {
+        val (lit, preds) = unit.get
+        unit_propagation_step(lit, preds)
+      } else (false, false)
+    }
+
+    val unit = find_unit_clause(cnf)
+    if (unit.isDefined) {
+      val (lit, preds) = unit.get
+      unit_propagation_step(lit, preds)
+    } else (false, false)
+  }
+
+  /**
+    * Applies pure literal rule to all pure variables found.
     */
   protected def applyPureLiteral(): Unit = {
     def applyPureLiteralStep(): Int = {
@@ -295,6 +269,39 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
     }
 
     while (applyPureLiteralStep() != 0) {}
+  }
+
+  /**
+    * Literal choosing strategies.
+    */
+
+  /**
+    * Returns an unassigned random literal.
+    */
+  protected def request_literal(formula: Formula): Int = {
+    val size = _used_literals.size
+    val start = Random.nextInt(size)                                      // random starting position of the search
+    var idx = start
+    while (idx < start+size && _used_literals(idx % size)) idx += 1       // loop until finding an unassigned literal
+    val lit = formula.Variable.toLiteral((idx % size) + 1)                // recover literal
+    select_literal(lit)
+    if (Random.nextInt() % 2 == 1) lit
+    else formula.Literal.neg(lit)
+  }
+
+  /**
+    * Returns first unassigned literal. In case no such literal exists returns -1.
+    * @param formula from which will be literal chosen
+    * @return first unassigned literal
+    */
+  protected def request_first_unassigned(formula: Formula): Int = {
+    formula.foreachEnabled(c => {
+      c.foreachEnabled(l => {
+        select_literal(l)
+        return l
+      })
+    })
+    -1
   }
 
 }

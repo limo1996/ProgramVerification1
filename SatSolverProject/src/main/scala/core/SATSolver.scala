@@ -32,4 +32,17 @@ trait SATSolver {
   def convertToCNF(formula: Term): Formula = {
     new Formula(formula)
   }
+
+  protected def check_consistency(formula: Formula): Boolean = {
+    for (clause <- formula.clauses)
+      if (clause.enabled) return false
+    true
+  }
+
+  protected def check_inconsistency(formula: Formula): Boolean = {
+    for (clause <- formula.clauses)
+      if (clause.enabledLiteralsCount == 0) return true
+    false
+  }
+
 }
