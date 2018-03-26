@@ -33,13 +33,13 @@ trait SATSolver {
     new Formula(formula)
   }
 
-  protected def check_consistency(formula: Formula): Boolean = {
+  protected def check_sat(formula: Formula): Boolean = {
     for (clause <- formula.clauses)
       if (clause.enabled) return false
     true
   }
 
-  protected def check_inconsistency(formula: Formula): Boolean = {
+  protected def check_unsat(formula: Formula): Boolean = {
     for (clause <- formula.clauses)
       if (clause.enabledLiteralsCount == 0) return true
     false

@@ -81,8 +81,6 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
    * Decision rule. Decision literal chosen ... ???
    */
   protected def decision(cnf: Formula): Boolean = {
-    if (check_consistency(cnf)) return true
-    if (check_inconsistency(cnf)) return false
 
     val (v1, v2) = unit_propagation(cnf)
     if (v1) return v2
@@ -91,7 +89,7 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
       applyPureLiteral()
     }
 
-    if (check_consistency(cnf)) return true
+    if (check_sat(cnf)) return true
 
     val lit = request_literal(cnf)
     val neg_lit = cnf.Literal.neg(lit)
@@ -221,8 +219,8 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
       disable(lit)
 
       // Check sat and unsat after every propagation
-      if (check_consistency(_cnf)) return (true, true)
-      if (check_inconsistency(_cnf)) return (true, false)
+      if (check_sat(_cnf)) return (true, true)
+      if (check_unsat(_cnf)) return (true, false)
 
       val unit = find_unit_clause(_cnf)
       if (unit.isDefined) {

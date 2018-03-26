@@ -38,8 +38,8 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
     */
   @tailrec
   final override def decision(cnf: Formula): Boolean = {
-    if (check_consistency(cnf)) return true                         // if all clauses are disabled => solved
-    if (check_inconsistency(cnf)) {                                 // if there is empty clause => conflict
+    if (check_sat(cnf)) return true                                 // if all clauses are disabled => solved
+    if (check_unsat(cnf)) {                                         // if there is empty clause => conflict
       println(1)
       if(resolveConflict())                                         // resolve conflict => learn clause, jump back to relevant decision literal
         decision(cnf)                                               // carry on with learned clause
@@ -60,7 +60,7 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
           applyPureLiteral()
         }
 
-        if (check_consistency(cnf)) return true
+        if (check_sat(cnf)) return true
 
         val lit = request_first_unassigned(cnf)
         //val lit = request_literal(cnf)                            // -> working as well
