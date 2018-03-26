@@ -46,7 +46,7 @@ class CDCL(val clauseLearning : Boolean ,override val usePureLiteralRule: Boolea
       else
         return false
     } else {
-      val (v1, v2) = unit_propagation0(cnf)                         // apply unit propagation recursively
+      val (v1, v2) = unit_propagation(cnf)                          // apply unit propagation recursively
       if (v1) {
         if (v2) return true
         else {
