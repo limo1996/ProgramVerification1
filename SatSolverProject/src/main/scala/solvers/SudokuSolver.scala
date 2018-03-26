@@ -3,16 +3,13 @@ package solvers
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.io.Source
-
 import core.MySATSolver
 import core.SATSolver
-
 import java.nio.file.{Files, Paths}
 import java.nio.charset.StandardCharsets
 
 import smtlib.parser.Commands.Command
 import smtlib.parser.Terms.Term
-
 
 /**
   * Based on https://pdfs.semanticscholar.org/3d74/f5201b30772620015b8e13f4da68ea559dfe.pdf
@@ -263,7 +260,9 @@ class SudokuSolver {
   private def writeResultToFile(res: Option[Map[String,Boolean]], originalPath: String) : Unit = {
     assert(res.isDefined)
     val formula = res.get
-    val newPath : String = originalPath + ".res"
+    val filename = originalPath.substring(originalPath.lastIndexOf("/"))
+    val newPath = "src/test/resources/solved_sudoku" + filename + ".res"
+    println(newPath)
     val sudoku = parseResult(formula)
     val builder = new StringBuffer()
 
