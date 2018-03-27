@@ -6,6 +6,7 @@ import smtlib.parser.Terms
 
 import scala.util.Random
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -99,27 +100,27 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean) 
 
     if (decision(cnf)) true
     else {
-      undo_before_event_of_literal(Set(lit))
+      undo_before_event_of_literal(mutable.Set(lit))
 
       _implication_graph.logDecision(neg_lit)
       disable(neg_lit)
 
       if (decision(cnf)) true
       else {
-        undo_before_event_of_literal(Set(neg_lit))
+        undo_before_event_of_literal(mutable.Set(neg_lit))
         deselect_literal(lit)
         false
       }
     }
   }
 
-  protected def undo_before_event_of_literal(lits: Set[Int]): Unit = {
+  protected def undo_before_event_of_literal(lits: mutable.Set[Int]): Unit = {
     val ev = undo_before_event_of_literal1(lits)
     enable(ev, _implication_graph)
     _implication_graph.popEvent()
   }
 
-  protected def undo_before_event_of_literal1(lits: Set[Int]): Event = {
+  protected def undo_before_event_of_literal1(lits: mutable.Set[Int]): Event = {
     var evArr = ArrayBuffer[Event]()
     for(l <- lits) {
       if(_implication_graph.containsEvent(l))
