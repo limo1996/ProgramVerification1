@@ -26,3 +26,18 @@ We can see that tseitin conversion is quite faster.
 ## Sudoku
 
 We also implemented bonus task - sudoku by encoding mechanism described in [paper](https://pdfs.semanticscholar.org/535d/06391275618a7b913d1c98a1353286db8d74.pdf) written by Inês Lynce and Jöel Ouaknine. They presented two approaches but we picked minimal encoding that looked more readable to us. All tests even the hardest ones are able to finish within 30 seconds with CDCLBaseline solver. We did not try other solvers since CDCL is clearly faster than DPLL on structured tests.
+
+### Sudoku performance
+
+
+| Sudoku test        | DPLL Baseline   | DPLL Without Pure   | CDCL Baseline | CDCL Without Learning |
+| ------------------ |:---------------:| ------------------:|:-------------:|:----------------------:|
+| sudoku9.txt        | 3224.4s         | 5150.2s            | 6039.8s       | 5445.6s                |
+| sudoku10.txt       | 2222.6s         | 2812.8s            | 2745.2s       | 2799.2s                |
+| sudoku35.txt       | 1780.0s         | 1127.0s            | 1016.6s       | 1162.2s                |
+| sudoku38.txt       | 1507.8s         | 1094.4s            | 1082.4s       | 1063.0s                |
+| sudoku5.txt        | 1057.2s         | 1110.8s            | 1091.4s       | 1430.6s                |
+| sudoku11.txt       | 1100.8s         | 2133.2s            | 1221.8s       | 1193.4s                |
+| sudoku13.txt       | 1290.2s         | 1314.0s            | 1400.4s       | 1350.4s                |
+| sudoku3.txt        | 1368.4s         | 1436.8s            | 1456.8s       | 1445.8s                |
+
