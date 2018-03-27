@@ -1,55 +1,38 @@
 package solvers
 
 import scala.collection.mutable
-import scala.io.Source
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.StringBuilder
+import scala.io.Source
 
 import core.MySATSolver
 import core.SATSolver
-import core.CNFConverter
 
-
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 import java.nio.charset.StandardCharsets
 
 import smtlib.parser.Commands.Command
-import smtlib.parser.Terms.{QualifiedIdentifier, SimpleIdentifier, Term}
-import smtlib.theories.Core._
+import smtlib.parser.Terms.Term
 
-/**
-  * To run sudoku tap a command:
-  * run CDCLBaseline /Users/limo/Documents/eth-courses/ProgramVerification/Projects/Project1/SatSolverProject/src/test/resources/sudoku/medium.txt --sudoku
-  * where second argument is path to file.
-  * Afterwards you should see solution in the same folder with .res appended after file name
-  */
 
 /**
   * Based on https://pdfs.semanticscholar.org/3d74/f5201b30772620015b8e13f4da68ea559dfe.pdf
-  * @param solver Indicates which solver to use.
+  * @param solverConfiguration Indicates which solver to use.
   */
 class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
-  val _builder = new mutable.StringBuilder()
+  val _builder = new mutable.StringBuilder()  // used to construct the smt2 representation of the Sudoku puzzle
 
-  /* Solves sudoku problem specified in file provided as parameter. */
+  /*
+   * Solves the Sudoku puzzle specified in the file on the provided path.
+   */
   def solve(path: String) : Unit = {
-    val sudoku = parseFile(path)
-    val filename = path.slice(path.lastIndexOf('/') + 1, path.lastIndexOf('.'))
-    println(s"$filename: file parsed")
-    createSudokuFormulaString(sudoku)
-    Files.write(Paths.get(path+".result"), _builder.toString.getBytes(StandardCharsets.UTF_8))
-    println(s"$filename: formula string created")
-    val solver = getSolver(solverConfiguration)
-    println(s"$filename: Solver create. Formula is going to be solved")
-    val formula = smt2ToFormula(_builder.toString())
+    val formula = getFormula(path)
+    val solver = getSolver
     val result = solver.checkSAT(formula)
-    println(s"$filename: formula solved")
     writeResultToFile(result, path)
   }
 
   /**
-    * Gets solver from specification provided as parameter.
-    * We cannot use tseitin conversion because solver is not able to solve formula with it.
+    * Returns an smt representation of the Sudoku puzzle specified in the file on the provided path.
     */
   private def getSolver(solver : SATSolverConfiguration) : SATSolver = {
     solver match {
@@ -62,68 +45,68 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
     }
   }
 
-  /* Parses file into 9x9 matrix */
+  private def getFormula(path: String): Term = {
+    val sudoku = parseFile(path)
+    createSudokuFormulaString(sudoku)
+    smt2ToFormula(_builder.toString())
+  }
+
+  /**
+    * Returns a SATSolver instance based on the provided configuration.
+    */
+  private def getSolver : SATSolver = SolverFactory.constructSolver(solverConfiguration)
+
+  /**
+    * Parses Sudoku input file and stores result into 9x9 matrix.
+    */
   private def parseFile(path: String) : ArrayBuffer[Array[Int]] = {
-    val sudoku: ArrayBuffer[Array[Int]] = ArrayBuffer[Array[Int]]()
+    val sudoku = ArrayBuffer[Array[Int]]()
+
     for (line <- Source.fromFile(path).getLines) {
       sudoku.append(line.map(c => c.toString.toInt).toArray)
     }
+
     assert (sudoku.size == 9)
     sudoku
   }
 
-  /* Converts input string into smt2lib formula */
+  /**
+    * Converts input string into smt2lib formula.
+    */
   private def smt2ToFormula(inputString: String): Term = {
     val cmds: List[Command] = MySATSolver.parseInputString(inputString)
     val (_, formula) = util.InputProcessing.processCommands(cmds)
     formula
   }
 
-  /* gets name of variable specified by row, column and number it represents. */
-  private def varName(row: Int, column: Int, number: Int) : String = {
-    val sb = new StringBuilder(4)
-    sb.append("v")
-    sb.append(row)
-    sb.append(column)
-    sb.append(number)
-    return sb.result()
-  }
+  /**
+    * Returns the name of a variable specified by the row, the column and the number it represents.
+    */
+  private def varName(row: Int, column: Int, number: Int) : String =
+    "v" + row.toString + column.toString + number.toString
 
   /**
-    * Helper functions for appending to String Builder
+    * Helper functions for appending to String Builder.
     */
+  private def appendAnd() : Unit = _builder.append("(and ")
+  private def appendOr() : Unit = _builder.append("(or ")
+  private def appendNot() : Unit = _builder.append("(not ")
+  private def appendEnd() : Unit = _builder.append(")")
+  private def appendNL() : Unit = _builder.append("\n")
+  private def appendEndNL() : Unit = _builder.append(")\n")
+  private def appendVar(row: Int, column: Int, number: Int) : Unit = _builder.append(" " + varName(row, column, number))
+  private def appendPreamble() : Unit = _builder.append("(set-option :produce-models true)\n (set-logic QF_UF)\n")
+  private def appendVarDecl(row: Int, column: Int, number: Int) : Unit =
+    _builder.append("(declare-fun " + varName(row, column, number) + "() Bool)\n")
 
-  private def appendAnd() : Unit = {
-    _builder.append("(and ");
-  }
-  private def appendOr() : Unit = {
-    _builder.append("(or ")
-  }
-  private def appendNot() : Unit = {
-    _builder.append("(not ")
-  }
-  private def appendEnd() : Unit = {
-    _builder.append(")")
-  }
-  private def appendNL() : Unit = {
-    _builder.append("\n")
-  }
-  private def appendVar(row: Int, column: Int, number: Int) : Unit = {
-    _builder.append(f" ${varName(row, column, number)}")
-  }
-  private def appendPreamble() : Unit = {
-    _builder.append("(set-option :produce-models true)\n (set-logic QF_UF)\n")
-  }
-  private def appendVarDecl(row: Int, column: Int, number: Int) : Unit = {
-    _builder.append("(declare-fun " + varName(row, column, number) + "() Bool)\n");
-  }
-
-  /* Creates smt2 string from provided sudoku. */
+  /**
+    * Creates smt2 string from provided sudoku.
+    */
   private def createSudokuFormulaString(sudoku: ArrayBuffer[Array[Int]]) : Unit = {
-    // first goes smt preamble
+    // First goes the smt preamble
     appendPreamble()
 
-    // append variable declarations
+    // Append variable declarations
     for(row <- 1 to 9){
       for(column <- 1 to 9){
         for(number <- 1 to 9){
@@ -135,7 +118,8 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
     appendNL()
     _builder.append("(assert\n")
     appendAnd()
-    // force variables representing input number to be true
+
+    // Force variables representing input number to be true
     for(i <- 0 to 8){
       for(j <- 0 to 8){
         if(sudoku(i)(j) != 0) {
@@ -145,7 +129,7 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
     }
     appendNL()
 
-    // There is at least one number in each entry:
+    // There is at least one number in each entry
     appendAnd()
     for(row <- 1 to 9){
       appendAnd()
@@ -154,16 +138,13 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
         for(number <- 1 to 9){
           appendVar(row, column, number)
         }
-        appendEnd()
-        appendNL()
+        appendEndNL()
       }
-      appendEnd()
-      appendNL()
+      appendEndNL()
     }
-    appendEnd()
-    appendNL()
+    appendEndNL()
 
-    // Each number appears at most once in each row:
+    // Each number should appear at most once in each row
     appendAnd()
     for(column <- 1 to 9){
       appendAnd()
@@ -178,20 +159,16 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
               appendNot(); appendVar(i, column, number); appendEnd()
               appendEnd()
             }
-            appendEnd()
-            appendNL()
+            appendEndNL()
           }
         }
-        appendEnd()
-        appendNL()
+        appendEndNL()
       }
-      appendEnd()
-      appendNL()
+      appendEndNL()
     }
-    appendEnd()
-    appendNL()
+    appendEndNL()
 
-    // Each number appears at most once in each column:
+    // Each number should appear at most once in each column
     appendAnd()
     for(row <- 1 to 9){
       appendAnd()
@@ -206,20 +183,16 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
               appendNot(); appendVar(row, i, number); appendEnd()
               appendEnd()
             }
-            appendEnd()
-            appendNL()
+            appendEndNL()
           }
         }
-        appendEnd()
-        appendNL()
+        appendEndNL()
       }
-      appendEnd()
-      appendNL()
+      appendEndNL()
     }
-    appendEnd()
-    appendNL()
+    appendEndNL()
 
-    // Each number appears at most once in each 3x3 sub-grid
+    // Each number should appear at most once in each 3x3 sub-grid
     appendAnd()
     for(z <- 1 to 9){
       appendAnd()
@@ -238,26 +211,20 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
                   appendNot(); appendVar(3 * i + x, 3 * j + k, z); appendEnd()
                   appendEnd()
                 }
-                appendEnd()
-                appendNL()
+                appendEndNL()
               }
             }
-            appendEnd()
-            appendNL()
+            appendEndNL()
           }
-          appendEnd()
-          appendNL()
+          appendEndNL()
         }
-        appendEnd()
-        appendNL()
+        appendEndNL()
       }
-      appendEnd()
-      appendNL()
+      appendEndNL()
     }
-    appendEnd()
-    appendNL()
+    appendEndNL()
 
-    // Each number appears at most once in each 3x3 sub-grid
+    // Each number should appear at most once in each 3x3 sub-grid
     appendAnd()
     for(z <- 1 to 9){
       appendAnd()
@@ -278,42 +245,39 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
                     appendNot(); appendVar(3 * i + k, 3 * j + l, z); appendEnd()
                     appendEnd()
                   }
-                  appendEnd()
-                  appendNL()
+                  appendEndNL()
                 }
-                appendEnd()
-                appendNL()
+                appendEndNL()
               }
-              appendEnd()
-              appendNL()
+              appendEndNL()
             }
           }
-          appendEnd()
-          appendNL()
+          appendEndNL()
         }
-        appendEnd()
-        appendNL()
+        appendEndNL()
       }
-      appendEnd()
-      appendNL()
+      appendEndNL()
     }
-    appendEnd()
-    appendNL()
+    appendEndNL()
 
-    // append and of assertion
+    // Append and of assertion
     appendEnd()
     _builder.append("\n)\n")
-    // specify we want to solve formula and get model
+
+    // Specify we want to solve formula and get model
     _builder.append("(check-sat)\n(get-model)\n")
   }
 
-  /* Writes 9x9 result marix into file with extension .res */
+  /**
+    * Writes 9x9 result matrix into file with extension .res
+    */
   private def writeResultToFile(res: Option[Map[String,Boolean]], originalPath: String) : Unit = {
     assert(res.isDefined)
     val formula = res.get
-    val newPath : String = originalPath + ".res";
+    val newPath : String = originalPath + ".res"
     val sudoku = parseResult(formula)
     val builder = new StringBuffer()
+
     for(row <- sudoku){
       for(entry <- row){
         builder.append(entry)
@@ -323,14 +287,17 @@ class SudokuSolver(val solverConfiguration : SATSolverConfiguration) {
     Files.write(Paths.get(newPath), builder.toString.getBytes(StandardCharsets.UTF_8))
   }
 
-  /* Converts final assignment of variables into resulting 9x9 matrix */
+  /**
+    * Converts final assignment of variables into resulting 9x9 matrix
+    */
   private def parseResult(res: Map[String, Boolean]) : Array[Array[Int]] = {
     val sudoku = Array.fill(9){Array.fill(9){0}}
-    for ((k: String, v: Boolean) <- res){
-      if(v){
-        val x = k.charAt(1).toInt - 48
-        val y = k.charAt(2).toInt - 48
-        val value = k.charAt(3).toInt - 48
+
+    for ((variable: String, v: Boolean) <- res){
+      if (v) {
+        val x = variable.charAt(1).toInt - 48
+        val y = variable.charAt(2).toInt - 48
+        val value = variable.charAt(3).toInt - 48
         sudoku(x - 1)(y - 1) = value
       }
     }
