@@ -12,22 +12,21 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object Evaluator {
-  private val runs = 15                         // # experiments for every configuration
-  private val dropRuns = 5                      // # of experiments to be ignored
-  private val timeout = Duration(10, SECONDS)   // max duration in which an experiment should terminate
+class Evaluator {
+  protected val runs = 15                         // # experiments for every configuration
+  protected val dropRuns = 5                      // # of experiments to be ignored
+  protected val timeout = Duration(10, SECONDS)   // max duration in which an experiment should terminate
 
-  private val outputDirPath = "results/"
+  private val outputDirPath = "../results/"
   private val outputFileExtension = ".time"
-  private val dirPathsToPrefixes = Map("examples" -> "Examples_",
-    "tests/random" -> "Random_", "tests/structured" -> "Structured_")
-  private var solverToWriter = Map[String, BufferedWriter]()
 
   /**
     * Creates and runs evaluation experiments for every solver and every test file.
     */
   def run(): Unit = {
-    createOutputFiles()
+    val dirPathsToPrefixes = Map("examples" -> "Examples_", "sudoku" -> "Sudoku_",
+      "tests/random" -> "Random_", "tests/structured" -> "Structured_")
+    val solverToWriter = createOutputFiles(dirPathsToPrefixes)
 
     dirPathsToPrefixes.foreach{ case(dirPath, prefix) =>
       val files = collectFiles(dirPath, ".cnf") ++ collectFiles(dirPath, ".smt2")
@@ -65,8 +64,7 @@ object Evaluator {
         })
       })
     }
-
-    closeOutputFiles()
+    closeOutputFiles(solverToWriter)
   }
 
   /**
@@ -75,7 +73,7 @@ object Evaluator {
     * @return - "timeout" if an experiment timeouts, else the average execution time
     *         of the last (@runs - @dropRuns) experiments.
     */
-  private def averagedExperiment(solver: SATSolver, formula: Term): String = {
+  protected def averagedExperiment(solver: SATSolver, formula: Term): String = {
     var results = Seq[Double]()                                 // stores the experiments' timings
 
     // Run experiment @runs times.
@@ -117,7 +115,8 @@ object Evaluator {
     * Creates a file for every available solver and populates the @solverToWriter map
     * with a writer for this file.
     */
-  private def createOutputFiles(): Unit = {
+  protected def createOutputFiles(dirPathsToPrefixes: Map[String, String]): Map[String, BufferedWriter] = {
+    var solverToWriter = Map[String, BufferedWriter]()
     dirPathsToPrefixes.foreach{ case(_, prefix) =>
       SolverFactory.getAllSupportedSolvers.foreach((solverType) => {
         val file = new File(outputDirPath + prefix + solverType.toString + outputFileExtension)
@@ -125,15 +124,16 @@ object Evaluator {
         solverToWriter += (prefix+solverType.toString -> bw)
       })
     }
+    solverToWriter
   }
 
-  private def closeOutputFiles(): Unit = {
+  protected def closeOutputFiles(solverToWriter: Map[String, BufferedWriter]): Unit = {
     for ((_, writer) <- solverToWriter) {
       writer.close()
     }
   }
 
-  private def collectFiles(path: String, extension: String) = {
+  protected def collectFiles(path: String, extension: String) : mutable.Buffer[File] = {
     val paths = mutable.Buffer[File]()
     def collectFiles(file: File): Unit = {
       if (file.exists) {

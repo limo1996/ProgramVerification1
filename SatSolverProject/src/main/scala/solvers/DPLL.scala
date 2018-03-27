@@ -6,21 +6,22 @@ import smtlib.parser.Terms
 
 import scala.util.Random
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
   * A stub of a configurable implementation of the DPLL.
   *
-  * @param usePureLiteralRule True if the implementation should use
-  *                           the pure literal rule.
+  * @param usePureLiteralRule True if the implementation should use the pure literal rule.
   * @param useTseitinConversion Indicates whether to use tseitin conversion or not.
   */
 class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, val strategy: String) extends SATSolver {
 
-  protected var _implication_graph : ImplicationGraph = null;
-  protected var _cnf : Formula = null;
-  protected var _used_literals : ArrayBuffer[Boolean] = null;
-  protected var _branching : ArrayBuffer[Int] = null;
+  protected var _implication_graph : ImplicationGraph = _
+  protected var _cnf : Formula = _
+  protected var _used_literals : ArrayBuffer[Boolean] = _
+  protected var _branching : ArrayBuffer[Int] = _
+
   override def convertToCNF(formula: Terms.Term): Formula = {
     new Formula(formula, useTseitinConversion)
   }
@@ -29,18 +30,12 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
     * All solvers should implement this method to satisfy the common interface.
     */
   override def checkSAT(formula: Terms.Term): Option[Map[String, Boolean]] = {
-    val cnf = convertToCNF(formula)
-    _cnf = cnf
-    _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
-    val result = solve(cnf, _implication_graph)
+    _cnf = convertToCNF(formula)
+    _implication_graph = new ImplicationGraph(_cnf.literalCount, _cnf, verbose = false)
+    val result = solve(_cnf, _implication_graph)
     result.map(_.toMap)
   }
 
-  /**
-    * The method that does the actual work.
-    *
-    * TODO: Implement.
-    */
   protected def solve(cnf: Formula, implication_graph: ImplicationGraph): Option[cnf.Model] = {
     _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
     _branching = ArrayBuffer.fill(cnf.literalCount){0}
@@ -87,17 +82,15 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
    * Decision rule. Decision literal chosen ... ???
    */
   protected def decision(cnf: Formula): Boolean = {
-    if (check_consistency(cnf)) return true
-    if (check_inconsistency(cnf)) return false
 
-    val (v1, v2) = unit_propagation0(cnf)
+    val (v1, v2) = unit_propagation(cnf)
     if (v1) return v2
 
     if (usePureLiteralRule) {
       applyPureLiteral()
     }
 
-    if (check_consistency(cnf)) return true
+    if (check_sat(cnf)) return true
 
     val lit = request_literal(cnf, strategy)
 
@@ -108,30 +101,29 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
 
     if (decision(cnf)) true
     else {
-      undo_before_event_of_literal(Set(lit))
+      undo_before_event_of_literal(mutable.Set(lit))
 
       _implication_graph.logDecision(neg_lit)
       disable(neg_lit)
 
       if (decision(cnf)) true
       else {
-        undo_before_event_of_literal(Set(neg_lit))
+        undo_before_event_of_literal(mutable.Set(neg_lit))
         deselect_literal(lit)
         false
       }
     }
   }
 
-  protected def undo_before_event_of_literal(lits: Set[Int]): Unit = {
+  protected def undo_before_event_of_literal(lits: mutable.Set[Int]): Unit = {
     val ev = undo_before_event_of_literal1(lits)
     enable(ev, _implication_graph)
     _implication_graph.popEvent()
   }
 
-  protected def undo_before_event_of_literal1(lits: Set[Int]): Event = {
+  protected def undo_before_event_of_literal1(lits: mutable.Set[Int]): Event = {
     var evArr = ArrayBuffer[Event]()
     for(l <- lits) {
-      //println(_cnf.variableNames(_cnf.Literal.toVariable(l)))
       if(_implication_graph.containsEvent(l))
         evArr += _implication_graph.getEvent(l)
     }
@@ -148,6 +140,7 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
         return ev
     }
     ev
+
     //enable(ev, _implication_graph)
     //_implication_graph.popEvent()
   }
@@ -284,18 +277,27 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
     chosen
   }
 
+  /**
+    * Marks that literal is currently assigned a value.
+    */
   protected def select_literal(literal: Int): Unit = {
     val idx = _cnf.Literal.toVariable(literal)-1
     _used_literals(idx) = true
     _branching(idx) += 1
   }
 
+  /**
+    * Marks that literal is not currently assigned a value.
+    */
   protected def deselect_literal(literal: Int): Unit = {
     val idx = _cnf.Literal.toVariable(literal)-1
     _used_literals(idx) = false
     _branching(idx) = 0
   }
 
+  /**
+    * Disables clauses the containing literal and also its negation if it appears in clauses.
+    */
   protected def disable(literal: Int): Unit = {
     _cnf.clauses.zipWithIndex.foreach({ case(clause, c_idx) =>
       if (clause.enabled && clause.literals.contains(literal)) {
@@ -312,6 +314,9 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
     })
   }
 
+  /**
+    * Enables the clauses and literals of the cnf formula that were disabled by event.
+    */
   protected def enable(event: Event, implication_graph: ImplicationGraph): Unit = {
     event.effects.foreach({
       case implication_graph.DisableClause(i) => _cnf.clauses(i).enabled = true
@@ -320,7 +325,56 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
   }
 
   /**
-    * Applies pure literal rule to all pure variables found
+    * Applies unit propagation.
+    * @return tuple of booleans (v1, v2)
+    *         v1: formula evaluated to sat or unsat, sat if v2 or else unsat
+    *         v2: there were no more propagations to be done
+    */
+  protected def unit_propagation(cnf:Formula): (Boolean, Boolean) = {
+
+    // Searches for a unit clause. If one is found, the unit literal and an array of all the others
+    // negated is return or else None is returned.
+    def find_unit_clause(cnf: Formula) : Option[(Int, ArrayBuffer[Int])] = {
+      cnf.foreachEnabled(c => {
+        if (c.enabledLiteralsCount == 1) {                // if there is only one enabled literal in the clause
+          val ls = c.literals.clone()                     // copy of the literals
+          var unit: Int = -1                              // will get assigned an actual literal value
+          ls.zipWithIndex.foreach({ case(l, idx) =>
+            if (cnf.Literal.isEnabled(l)) unit = l        // the unit literal
+            else ls(idx) = cnf.Literal.neg(ls(idx))       // negate all other literals
+          })
+          return Some((unit, ls - unit))                  // return unit and the array of negated literals without unit
+        }
+      })
+      None
+    }
+
+    @tailrec
+    def unit_propagation_step(lit: Int, preds: ArrayBuffer[Int]): (Boolean, Boolean) = {
+      select_literal(lit)
+      _implication_graph.logConsequence(lit, preds)
+      disable(lit)
+
+      // Check sat and unsat after every propagation
+      if (check_sat(_cnf)) return (true, true)
+      if (check_unsat(_cnf)) return (true, false)
+
+      val unit = find_unit_clause(_cnf)
+      if (unit.isDefined) {
+        val (lit, preds) = unit.get
+        unit_propagation_step(lit, preds)
+      } else (false, false)
+    }
+
+    val unit = find_unit_clause(cnf)
+    if (unit.isDefined) {
+      val (lit, preds) = unit.get
+      unit_propagation_step(lit, preds)
+    } else (false, false)
+  }
+
+  /**
+    * Applies pure literal rule to all pure variables found.
     */
   protected def applyPureLiteral(): Unit = {
     def applyPureLiteralStep(): Int = {
@@ -351,5 +405,4 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
 
     while (applyPureLiteralStep() != 0) {}
   }
-
 }

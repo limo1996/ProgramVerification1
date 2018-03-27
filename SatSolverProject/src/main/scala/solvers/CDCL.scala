@@ -17,7 +17,7 @@ import scala.collection.mutable
 class CDCL(val clauseLearning : Boolean, override val usePureLiteralRule: Boolean, override val useTseitinConversion : Boolean,
            override val strategy: String) extends DPLL(usePureLiteralRule, useTseitinConversion, strategy) {
 
-  protected var _conflict_relevant : Set[Int] = null
+  protected var _conflict_relevant : mutable.Set[Int] = _
 
   /**
     * All solvers should implement this method to satisfy the common interface.
@@ -26,7 +26,7 @@ class CDCL(val clauseLearning : Boolean, override val usePureLiteralRule: Boolea
     val cnf = convertToCNF(formula)
     _cnf = cnf
     _implication_graph = new ImplicationGraph(cnf.literalCount, cnf, verbose = false)
-    _conflict_relevant = Set[Int]()
+    _conflict_relevant = mutable.Set[Int]()
     val result = solve(cnf, _implication_graph)
     result.map(_.toMap)
   }
@@ -38,15 +38,15 @@ class CDCL(val clauseLearning : Boolean, override val usePureLiteralRule: Boolea
     */
   @tailrec
   final override def decision(cnf: Formula): Boolean = {
-    if (check_consistency(cnf)) return true                         // if all clauses are disabled => solved
-    if (check_inconsistency(cnf)) {                                 // if there is empty clause => conflict
+    if (check_sat(cnf)) return true                                 // if all clauses are disabled => solved
+    if (check_unsat(cnf)) {                                         // if there is empty clause => conflict
       println(1)
       if(resolveConflict())                                         // resolve conflict => learn clause, jump back to relevant decision literal
         decision(cnf)                                               // carry on with learned clause
       else
         return false
     } else {
-      val (v1, v2) = unit_propagation0(cnf)                         // apply unit propagation recursively
+      val (v1, v2) = unit_propagation(cnf)                          // apply unit propagation recursively
       if (v1) {
         if (v2) return true
         else {
@@ -61,7 +61,7 @@ class CDCL(val clauseLearning : Boolean, override val usePureLiteralRule: Boolea
           applyPureLiteral()
         }
 
-        if (check_consistency(cnf)) return true
+        if (check_sat(cnf)) return true
 
         val lit = request_literal(cnf, strategy)                            // request dec. literal
 
@@ -92,19 +92,22 @@ class CDCL(val clauseLearning : Boolean, override val usePureLiteralRule: Boolea
   private def conflictResolution() : Int = {
     val conflict_lit = _implication_graph.lastEvent().get.getLiteral
     var parents = mutable.Set[Int]()
+    var relevantDecisions = mutable.Set[Int]()
     allParentDecisionLiterals(ArrayBuffer(conflict_lit), parents, _implication_graph)
-    for(c <- getClauseLiterals(_cnf.Literal.neg(conflict_lit), _implication_graph)) {
+    val clausesLiterals = getClausesLiterals(_cnf.Literal.neg(conflict_lit), _implication_graph)
+
+    relevantDecisions ++= parents
+    for(c <- clausesLiterals) {
       var temp = mutable.Set[Int]()
-      allParentDecisionLiterals(ArrayBuffer(_cnf.Literal.neg(c)), temp, _implication_graph)
-      parents ++= temp
+      for (l <- c) {
+        allParentDecisionLiterals(ArrayBuffer(_cnf.Literal.neg(l)), temp, _implication_graph)
+      }
+
+      relevantDecisions ++= temp
+
+      if (clauseLearning)
+        _cnf.addNewClause((parents ++ temp).toSeq)           // clause learning
     }
-
-    if (clauseLearning)
-      _cnf.addNewClause(parents.toSeq)        // clause learning
-
-    var relevantDecisions = Set[Int]()
-    for (c <- parents)
-      relevantDecisions += _cnf.Literal.neg(c)
 
     _conflict_relevant ++= relevantDecisions
     //println("Relevant decisions: " + relevantDecisions.map(c => getName(c)))
@@ -145,6 +148,16 @@ class CDCL(val clauseLearning : Boolean, override val usePureLiteralRule: Boolea
       if(c.enabledLiteralsCount == 0 && c.literals.contains(_cnf.Literal.disable(lit))) {
         if (toReturn.lengthCompare(c.literals.size) < 0)
           toReturn = c.literals
+      }
+    })
+    toReturn
+  }
+
+  private def getClausesLiterals(lit: Int, implication_graph: ImplicationGraph) : ArrayBuffer[ArrayBuffer[Int]] = {
+    val toReturn = ArrayBuffer[ArrayBuffer[Int]]()
+    _cnf.foreachEnabled(c => {
+      if(c.enabledLiteralsCount == 0 && c.literals.contains(_cnf.Literal.disable(lit))) {
+        toReturn.append(c.literals.clone())
       }
     })
     toReturn

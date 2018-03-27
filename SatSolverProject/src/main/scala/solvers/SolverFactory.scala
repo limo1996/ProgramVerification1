@@ -44,11 +44,11 @@ object SolverFactory {
   def getAllSupportedSolvers: Seq[SATSolverConfiguration] = {
     // TODO: Add all your solver configurations to this list so that they can be automatically tested.
     List(
-      //solvers.DPLLBaseline,
-      //solvers.DPLLWithoutPure,
+      solvers.DPLLBaseline,
+      solvers.DPLLWithoutPure,
       //solvers.DPLLTseitin,
       solvers.CDCLBaseline,
-      solvers.CDCLTseitin,
+      //solvers.CDCLTseitin
       solvers.CDCLWithoutLearning
     )
   }
