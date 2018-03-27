@@ -37,6 +37,12 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
   }
 
   protected def solve(cnf: Formula, implication_graph: ImplicationGraph): Option[cnf.Model] = {
+    def checkTrivial(cnf: Formula, implication_graph: ImplicationGraph): (Boolean, Option[cnf.Model]) = {
+      if (cnf.hasEmptyClause) (true, None)
+      else if (cnf.clauses.isEmpty) (true, Some(buildModel(cnf, implication_graph)))
+      else (false, None)
+    }
+
     _used_literals = ArrayBuffer.fill(cnf.literalCount) {false}
     _branching = ArrayBuffer.fill(cnf.literalCount){0}
 
@@ -72,12 +78,6 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
     model
   }
 
-  protected def checkTrivial(cnf: Formula, implication_graph: ImplicationGraph): (Boolean, Option[cnf.Model]) = {
-    if (cnf.hasEmptyClause) (true, None)
-    else if (cnf.clauses.isEmpty) (true, Some(buildModel(cnf, implication_graph)))
-    else (false, None)
-  }
-
   /*
    * Decision rule. Decision literal chosen ... ???
    */
@@ -86,15 +86,10 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
     val (v1, v2) = unit_propagation(cnf)
     if (v1) return v2
 
-    if (usePureLiteralRule) {
-      applyPureLiteral()
-    }
-
+    if (usePureLiteralRule) applyPureLiteral()
     if (check_sat(cnf)) return true
 
     val lit = request_literal(cnf, strategy)
-
-    val neg_lit = cnf.Literal.neg(lit)
 
     _implication_graph.logDecision(lit)
     disable(lit)
@@ -103,6 +98,7 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
     else {
       undo_before_event_of_literal(mutable.Set(lit))
 
+      val neg_lit = cnf.Literal.neg(lit)
       _implication_graph.logDecision(neg_lit)
       disable(neg_lit)
 
@@ -406,3 +402,38 @@ class DPLL(val usePureLiteralRule: Boolean, val useTseitinConversion : Boolean, 
     while (applyPureLiteralStep() != 0) {}
   }
 }
+
+/*
+  def initialize_watchers(cnf: Formula): ArrayBuffer[(Int, Int)] = {
+    val watchers = ArrayBuffer[(Int, Int)]()
+    cnf.clauses.zipWithIndex.foreach({ case (clause, idx) =>
+      val len = clause.literals.size
+      if (len == 1) watchers += ((len - 1, len - 1))
+      else watchers += ((len - 2, len - 1))
+    })
+    watchers
+  }
+
+  def check_watchers(cnf: Formula, watchers: ArrayBuffer[(Int, Int)]): Int = {
+    cnf.clauses.zipWithIndex.foreach({ case (clause, c_idx) =>
+      if (clause.enabled) {
+        val c_watchers = watchers(c_idx)
+        val watched_1 = clause.literals(c_watchers._1)
+        val watched_2 = clause.literals(c_watchers._2)
+
+        if (watched_1 == watched_2 || !cnf.Literal.isEnabled(watched_1) || !cnf.Literal.isEnabled(watched_2)) {
+          // If a watched literal gets disabled, check clause for enabled ones
+          val enabledLiterals = clause.enabledLiteralsIndexes
+          if (enabledLiterals.size == 1) {
+            // If there is only one enabled, return it to propagate it
+            return enabledLiterals(0)._1
+          } else {
+            // If there are two or more, update watchers
+            watchers(c_idx) = (enabledLiterals(0)._2, enabledLiterals(1)._2)
+          }
+        }
+      }
+    })
+    -1
+  }
+*/
