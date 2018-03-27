@@ -7,7 +7,7 @@ import solvers.{SolverFactory, SudokuSolver}
 
 class SudokuEvaluator extends Evaluator {
   override protected val runs = 10                         // # experiments for every configuration
-  override protected val timeout = Duration(60, SECONDS)   // max duration in which an experiment should terminate
+  override protected val timeout = 60000                   // max duration in which an experiment should terminate
 
   override def run(): Unit = {
     val dirPathsToPrefixes = Map("sudoku" -> "Sudoku_")

@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class Evaluator {
   protected val runs = 15                         // # experiments for every configuration
   protected val dropRuns = 5                      // # of experiments to be ignored
-  protected val timeout = Duration(10, SECONDS)   // max duration in which an experiment should terminate
+  protected val timeout = 10000                   // max duration in which an experiment should terminate
 
   private val outputDirPath = "../results/"
   private val outputFileExtension = ".time"
@@ -82,10 +82,8 @@ class Evaluator {
 
       // Consider only experiments after the first @dropRuns (warm up time)
       if (ith_run > dropRuns) {
-        result match {
-          case -1 => return "timeout"
-          case _ => results = result +: results
-        }
+        if (result > timeout) return "timeout"
+        else results = result +: results
       }
     }
 
@@ -98,16 +96,10 @@ class Evaluator {
     * @return - -1 if experiment timeouts, else the duration of the experiment in milliseconds.
     */
   private def runExperiment(solver: SATSolver, formula: Term): Double = {
-    try {
-      Await.result(Future[Double] {
-        val start = System.currentTimeMillis()
-        solver.checkSAT(formula)
-        val end = System.currentTimeMillis()
-        end - start
-      }, timeout)
-    } catch {
-      case _: Exception => -1  // catch whatever exception the interrupt solver may throw
-    }
+    val start = System.currentTimeMillis()
+    solver.checkSAT(formula)
+    val end = System.currentTimeMillis()
+    end - start
   }
 
 
