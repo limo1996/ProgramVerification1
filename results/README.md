@@ -29,6 +29,7 @@ We also implemented bonus task - sudoku by encoding mechanism described in [pape
 
 ### Sudoku performance
 
+After successful validation of our sudoku implementation we have decided to test the performance of selected solver configurations. It turned out that there is no clear winner. Formula is in every sudoku almost identical except the conjoined literals that are part of initial number distribution over grid. It is interesting to see that these small modifications caused different performances of solvers. We have picked few represenatives that represent patterns that repeat in results. Two most common patterns are where DPLL Baseline is much faster than others (sudoku 9 and 10) and pattern where DPLL Baseline is much slower than other three (suduko 35 and 38). 
 
 | Sudoku test        | DPLL Baseline   | DPLL Without Pure   | CDCL Baseline | CDCL Without Learning |
 | ------------------ |:---------------:| ------------------:|:-------------:|:----------------------:|
