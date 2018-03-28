@@ -25,7 +25,7 @@ class Evaluator {
     */
   def run(): Unit = {
     val dirPathsToPrefixes = Map("examples" -> "Examples_", "sudoku" -> "Sudoku_",
-      "benchmark_formulas/random" -> "Random_", "benchmark_formulas/structured" -> "Structured_")
+      "tests/random" -> "Random_", "tests/structured" -> "Structured_")
     val solverToWriter = createOutputFiles(dirPathsToPrefixes)
 
     dirPathsToPrefixes.foreach{ case(dirPath, prefix) =>
