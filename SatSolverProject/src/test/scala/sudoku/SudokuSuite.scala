@@ -101,7 +101,8 @@ class SudokuSuite extends FunSuite with TimeLimitedTests {
     test(s"CDCLBaseline $file --sudoku") {
       val solver = new SudokuSolver()
       solver.solve(SolverFactory.getConfigurationFromString("CDCLBaseline").get, file.getAbsolutePath)
-      checkSudoku(file.getAbsolutePath + ".res")
+      val solutionPath = "src/test/resources/solved_sudoku/" + file.getName + ".res"
+      checkSudoku(solutionPath)
     }
   })
 
