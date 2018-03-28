@@ -1,0 +1,14 @@
+php_3_8.cnf 5.1
+php_8_3.cnf 10.6
+test.cnf 0.4
+php_4_5.cnf 3.0
+php_5_4.cnf 10.4
+gop_complete_4.smt2 1.7
+test.smt2 0.0
+kcnf_30_10_100.smt2 10.5
+kcnf_10_1000_4000.smt2 1569.7
+kcnf_3_10_10.smt2 0.3
+kcnf_3_40_10.smt2 0.7
+kcnf_3_20_10.smt2 0.3
+kcnf_3_80_10.smt2 0.8
+kcnf_3_3000_8000.smt2 6610.0
