@@ -9,7 +9,7 @@ CONFIGURATIONS = []
 
 colors = ['firebrick', 'teal']
 
-RESULTS_FOLDER = os.path.join(os.pardir, '../SatSolverProject/results/')
+RESULTS_FOLDER = os.path.join(os.pardir, 'random/')
 
 class Plotter:
     def __init__(self):
@@ -20,6 +20,7 @@ class Plotter:
         shift = 0.3
         for c in configs:
             filename = '{}/{}.time'.format(folder,c)
+            print (filename)
             if os.path.exists(filename):
                 print('{} {}'.format(c, filename))
                 with open(filename) as f:
